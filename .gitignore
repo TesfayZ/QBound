@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+*.Zone.Identifier
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+*_backup_*
+
+# LaTeX temporary files
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.out
+*.toc
+*.lof
+*.lot
+
+# Results - keep structure but ignore old results
+# (Keep the latest results committed for reproducibility)
+
+# Summary documents (regenerated)
+*SUMMARY*.md
+*_SUMMARY.txt
+IMPLEMENTATION_STATUS.md
+EXPERIMENT_SETUP.md
+READY_TO_RUN.md
+QBOUND_GUIDE.md
+
+# Keep important docs
+!CLAUDE.md
+!README.md
+!PROJECT_ORGANIZATION.md
+!docs/*.md
+!QBound/README.md
