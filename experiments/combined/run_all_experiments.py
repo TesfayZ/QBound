@@ -139,7 +139,6 @@ def run_experiment(env_name, env_creator, config):
         use_qclip=True,
         qclip_max=config['qclip_max'],
         qclip_min=config['qclip_min'],
-        aux_weight=0.5,
         device="cpu"
     )
     rewards_qbound, episodes_qbound = train_agent_efficient(

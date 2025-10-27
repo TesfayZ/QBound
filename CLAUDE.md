@@ -48,6 +48,18 @@ QBound/
 5. **ALWAYS** put documentation in `docs/`
 6. **ALWAYS** save results in `results/<environment>/`
 
+## Reproducibility
+
+**CRITICAL**: All experiments use deterministic seeding for reproducibility.
+
+- **Global seed**: `SEED = 42` (applied to NumPy, PyTorch, Python random)
+- **Environment seeding**: Incremental seeds (42, 43, 44, ...) for each episode
+- **Device**: CPU only (ensures full determinism)
+
+See `docs/REPRODUCIBILITY.md` for complete seeding strategy and reproduction instructions.
+
+Running the same experiment twice with the same seed MUST produce identical results.
+
 ## Development Commands
 
 ### Run Experiments
@@ -57,6 +69,9 @@ QBound/
 python3 experiments/gridworld/train_gridworld.py
 python3 experiments/frozenlake/train_frozenlake.py
 python3 experiments/cartpole/train_cartpole.py
+
+# CartPole 3-way comparison (baseline vs static vs dynamic QBound)
+python3 experiments/cartpole/train_cartpole_3way.py
 
 # All experiments
 python3 experiments/combined/run_all_experiments.py
@@ -110,6 +125,26 @@ from dqn_agent import DQNAgent
 
 This ensures all scripts use the same core components.
 
+## Model Saving and Blind Evaluation
+
+**IMPORTANT**: The 3-way CartPole experiment saves trained models and performs blind evaluation.
+
+### Saved Models
+
+Trained models are saved to `models/cartpole/`:
+- `baseline_<timestamp>.pt` - Baseline DQN (no QBound)
+- `static_qbound_<timestamp>.pt` - Static QBound (Q_max=100)
+- `dynamic_qbound_<timestamp>.pt` - Dynamic QBound (Q_max(t)=500-t)
+
+### Blind Evaluation
+
+Models are evaluated **without step-aware information**:
+- Tests if dynamic QBound generalizes beyond training assumptions
+- Evaluates at max_steps=500 (training length) and max_steps=1000 (2x training)
+- Critical test: Can dynamic QBound perform without knowing current step?
+
+See `docs/BLIND_EVALUATION.md` for complete methodology and expected outcomes.
+
 ## Key Parameters
 
 ### QBound Configuration
@@ -117,22 +152,33 @@ This ensures all scripts use the same core components.
 - `use_qclip`: Enable/disable QBound (bool)
 - `qclip_min`: Lower bound for Q-values (float)
 - `qclip_max`: Upper bound for Q-values (float)
-- `aux_weight`: Weight for auxiliary loss (float, default: 0.5)
+- `use_step_aware_qbound`: Enable dynamic step-aware bounds (bool)
+- `max_episode_steps`: Maximum episode length for computing Q_max(t) (int)
+- `step_reward`: Reward per step for computing Q_max(t) (float)
 - `gamma`: Discount factor (float)
 
 ### Per-Environment Settings
 
+**⚠️ CRITICAL**: All Q_max values must account for the discount factor γ!
+
+**Correct Formula**: Q_max = (1 - γ^H) / (1 - γ) where H = max episode steps
+
 **GridWorld:**
 - Q_min=0.0, Q_max=1.0, γ=0.99
 - Episodes: 500, Max steps: 100
+- Theoretical Q_max = 63.4 (but using 1.0 for sparse terminal reward)
 
 **FrozenLake:**
 - Q_min=0.0, Q_max=1.0, γ=0.95
 - Episodes: 2000, Max steps: 100
+- Theoretical Q_max = 19.6 (but using 1.0 for sparse terminal reward)
 
 **CartPole:**
-- Q_min=0.0, Q_max=100.0, γ=0.99
+- Q_min=0.0, Q_max=99.34, γ=0.99
 - Episodes: 500, Max steps: 500
+- Theoretical Q_max = (1 - 0.99^500) / (1 - 0.99) ≈ 99.34
+
+See `docs/DISCOUNT_FACTOR_CORRECTION.md` for full explanation.
 
 ## Important Design Decisions
 

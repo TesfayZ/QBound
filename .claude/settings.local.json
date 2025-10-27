@@ -37,7 +37,8 @@
       "Read(//tmp/**)",
       "Bash(if [ -d .git ])",
       "Bash(then echo \"Git already initialized\")",
-      "Bash(else echo \"No git repo found\")"
+      "Bash(else echo \"No git repo found\")",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []

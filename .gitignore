@@ -48,6 +48,9 @@ Thumbs.db
 *.lof
 *.lot
 
+# Trained models - track them for reproducibility and blind evaluation
+# models/ folder will be committed
+
 # Results - keep structure but ignore old results
 # (Keep the latest results committed for reproducibility)
 

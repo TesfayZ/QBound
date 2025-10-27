@@ -1,12 +1,13 @@
 """
-DQN Agent with optional QClip
+DQN Agent with optional QBound
 Implements Deep Q-Network with neural network function approximator.
-Supports QClip for improved learning in sparse reward environments.
+Supports QBound for improved learning in sparse and dense reward environments.
 
-QClip Implementation based on the paper:
-- Clips both primary (current) and auxiliary (target) Q-values
-- Applies proportional scaling to next state Q-values
-- Prevents Q-value overestimation in sparse reward settings
+QBound Implementation:
+- Clips next-state Q-values to environment-aware bounds during bootstrapping
+- Prevents Q-value overestimation through bounded Bellman targets
+- Supports static bounds (sparse rewards) and dynamic bounds (dense rewards)
+- No auxiliary loss needed - bootstrapping naturally enforces bounds
 """
 
 import numpy as np
@@ -61,23 +62,22 @@ class DQNAgent:
     """
     DQN Agent with optional QBound.
 
-    QBound uses dual-loss training to enforce environment-aware value constraints:
+    QBound enforces environment-aware Q-value bounds through bootstrapping:
 
-    PRIMARY LOSS (Standard TD):
-    - Clips next-state Q-values using per-sample proportional scaling
+    MECHANISM:
+    - Clips next-state Q-values to [Q_min, Q_max] bounds
     - Computes Bellman targets: target = r + γ * clip(max_a' Q(s',a'))
-    - Clips final targets to bounds
-    - Updates network via TD error
+    - Clips final targets to bounds for safety
+    - Standard TD loss updates network
 
-    AUXILIARY LOSS (Bound Enforcement):
-    - Only penalizes Q-values that violate bounds [Q_min, Q_max]
-    - Clips violating Q-values to bounds without affecting others
-    - Avoids degrading well-behaved actions within bounds
-    - Teaches network to naturally output bounded Q-values
+    KEY INSIGHT:
+    Since RL agents select actions based on CURRENT Q-values (not next-state Q-values),
+    the bootstrapping process naturally propagates the bounds through the network.
+    No auxiliary loss is needed - clipping during target computation is sufficient.
 
-    Combined: total_loss = primary_loss + aux_weight * auxiliary_loss
-
-    NOTE: Current Q-values are NEVER clipped during forward pass (preserves gradients)
+    BOUNDS:
+    - Static bounds for sparse rewards (e.g., Q_max = 1.0 for binary rewards)
+    - Dynamic step-aware bounds for dense rewards (e.g., Q_max(t) = H - t for survival tasks)
     """
 
     def __init__(
@@ -95,17 +95,18 @@ class DQNAgent:
         use_qclip: bool = False,
         qclip_max: float = 1.0,
         qclip_min: float = 0.0,
-        aux_weight: float = 0.5,
         device: str = "cpu",
         use_step_aware_qbound: bool = False,
         max_episode_steps: int = 500,
-        step_reward: float = 1.0
+        step_reward: float = 1.0,
+        reward_is_negative: bool = False
     ):
         """
         Args:
-            use_step_aware_qbound: Enable step-aware dynamic Q-bounds (for dense rewards)
-            max_episode_steps: Maximum episode length (for computing dynamic Q_max)
-            step_reward: Reward per step (for computing dynamic Q_max)
+            use_step_aware_qbound: Enable step-aware dynamic Q-bounds
+            max_episode_steps: Maximum episode length (for computing dynamic Q-bounds)
+            step_reward: Reward magnitude per step (for computing dynamic Q-bounds)
+            reward_is_negative: True for negative rewards (sparse), False for positive (dense)
         """
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -118,13 +119,13 @@ class DQNAgent:
         self.use_qclip = use_qclip
         self.qclip_max = qclip_max
         self.qclip_min = qclip_min
-        self.aux_weight = aux_weight
         self.device = torch.device(device)
 
-        # Step-aware Q-bounds for dense rewards
+        # Step-aware Q-bounds
         self.use_step_aware_qbound = use_step_aware_qbound
         self.max_episode_steps = max_episode_steps
         self.step_reward = step_reward
+        self.reward_is_negative = reward_is_negative
 
         # Q-networks
         self.q_network = QNetwork(state_dim, action_dim).to(self.device)
@@ -160,13 +161,12 @@ class DQNAgent:
         """
         Perform one training step with optional QBound.
 
-        QBound uses TWO losses:
-        1. PRIMARY LOSS: Standard TD loss for the taken action
-        2. AUXILIARY LOSS: Penalizes only Q-values that violate [Q_min, Q_max]
+        QBound simply clips next-state Q-values during bootstrapping:
+        - Clipped targets: target = r + γ * clip(max_a' Q(s',a'), Q_min, Q_max)
+        - Standard TD loss: MSE(Q(s,a), target)
 
-        The auxiliary loss teaches the network to output bounded Q-values by
-        clipping only the violating actions, leaving well-behaved actions unchanged.
-        This avoids degrading good learners due to one bad action.
+        Since agents select actions using current Q-values, bootstrapping naturally
+        propagates bounds through the network without needing auxiliary losses.
         """
         if len(self.replay_buffer) < self.batch_size:
             return 0.0
@@ -181,23 +181,44 @@ class DQNAgent:
         next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
         dones = torch.FloatTensor(dones).to(self.device)
 
-        # Compute dynamic Q_max for step-aware bounds (dense rewards)
+        # Compute dynamic Q bounds for step-aware bounds
         if self.use_step_aware_qbound and current_steps[0] is not None:
-            # Q_max = (max_steps - current_step) * reward_per_step
+            # CORRECT FORMULA: geometric sum = (1 - γ^(H-t)) / (1 - γ)
             current_steps_tensor = torch.FloatTensor([s if s is not None else 0 for s in current_steps]).to(self.device)
-            dynamic_qmax = (self.max_episode_steps - current_steps_tensor) * self.step_reward
-            dynamic_qmin = torch.zeros_like(dynamic_qmax)
+            remaining_steps_current = self.max_episode_steps - current_steps_tensor
+            remaining_steps_next = torch.clamp(remaining_steps_current - 1, min=0)
+
+            # Dynamic bounds for CURRENT state (time t) - for clipping final target
+            geometric_sum_current = (1 - torch.pow(self.gamma, remaining_steps_current)) / (1 - self.gamma)
+
+            # Dynamic bounds for NEXT state (time t+1) - for clipping next-state Q-values
+            geometric_sum_next = (1 - torch.pow(self.gamma, remaining_steps_next)) / (1 - self.gamma)
+
+            if self.reward_is_negative:
+                # Negative rewards: Q ∈ [Q_min(t), 0]
+                dynamic_qmin_current = -geometric_sum_current * self.step_reward
+                dynamic_qmax_current = torch.zeros_like(dynamic_qmin_current)
+                dynamic_qmin_next = -geometric_sum_next * self.step_reward
+                dynamic_qmax_next = torch.zeros_like(dynamic_qmin_next)
+            else:
+                # Positive rewards: Q ∈ [0, Q_max(t)]
+                dynamic_qmin_current = torch.zeros_like(geometric_sum_current)
+                dynamic_qmax_current = geometric_sum_current * self.step_reward
+                dynamic_qmin_next = torch.zeros_like(geometric_sum_next)
+                dynamic_qmax_next = geometric_sum_next * self.step_reward
         else:
-            # Use static Q bounds
-            dynamic_qmax = torch.full((self.batch_size,), self.qclip_max, device=self.device)
-            dynamic_qmin = torch.full((self.batch_size,), self.qclip_min, device=self.device)
+            # Use static Q bounds (same for current and next state)
+            dynamic_qmax_current = torch.full((self.batch_size,), self.qclip_max, device=self.device)
+            dynamic_qmin_current = torch.full((self.batch_size,), self.qclip_min, device=self.device)
+            dynamic_qmax_next = torch.full((self.batch_size,), self.qclip_max, device=self.device)
+            dynamic_qmin_next = torch.full((self.batch_size,), self.qclip_min, device=self.device)
 
         # Current Q-values - NEVER CLIP THESE (breaks gradient flow)
         current_q_all = self.q_network(states)
         current_q_values = current_q_all.gather(1, actions.unsqueeze(1)).squeeze()
 
         # ============================================================
-        # PRIMARY LOSS: Standard TD loss
+        # PRIMARY LOSS: Standard TD loss with QBound
         # ============================================================
         with torch.no_grad():
             # Get next state Q-values from target network
@@ -205,25 +226,20 @@ class DQNAgent:
             next_q_values = next_q_values_all.max(1)[0]
 
             if self.use_qclip:
-                # Use dynamic Q-bounds for clipping (per-sample bounds)
-                # For step-aware: Q_max decreases as episode progresses
-                # For static: Q_max is constant across all samples
-                qmax_for_clipping = dynamic_qmax
-                qmin_for_clipping = dynamic_qmin
-
-                # Clip next state Q-values to dynamic bounds (bootstrapping only, no auxiliary)
+                # STEP 1: Clip next-state Q-values to bounds at time t+1
                 next_q_values = torch.clamp(next_q_values,
-                                           min=qmin_for_clipping,
-                                           max=qmax_for_clipping)
+                                           min=dynamic_qmin_next,
+                                           max=dynamic_qmax_next)
 
             # Compute target Q-values
             target_q_values = rewards + (1 - dones) * self.gamma * next_q_values
 
             if self.use_qclip:
-                # Clip target Q-values to dynamic bounds
+                # STEP 2: Clip final target to bounds at time t (IMPORTANT!)
+                # This ensures target respects the bounds for the current state
                 target_q_values = torch.clamp(target_q_values,
-                                             min=dynamic_qmin,
-                                             max=dynamic_qmax)
+                                             min=dynamic_qmin_current,
+                                             max=dynamic_qmax_current)
 
         # Primary TD loss (only loss used - bootstrapping handles Q-bounds)
         total_loss = nn.MSELoss()(current_q_values, target_q_values)

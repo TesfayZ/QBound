@@ -1,15 +1,10 @@
 """
-Double DQN Agent - Industry Standard Solution to Overestimation
+Double DQN Agent with Optional QBound Support
 
-This implementation uses Double Q-Learning to reduce overestimation bias
-WITHOUT hard Q-value clipping. This is the approach used in modern RL:
-- TD3 (Twin Delayed DDPG)
-- SAC (Soft Actor-Critic)
-- Modern DQN implementations
-
-Key Difference from QBound:
-- QBound: Clips Q-values to arbitrary bounds (causes underestimation)
-- Double DQN: Uses two networks for soft pessimism (no hard bounds)
+This implementation combines Double Q-Learning with optional QBound:
+- Double Q-Learning: Decouples action selection from evaluation (reduces overestimation)
+- QBound: Optional Q-value bounding for environments with known reward structure
+- Together: Tests whether QBound can enhance the industry-standard Double DQN
 
 Reference: "Deep Reinforcement Learning with Double Q-learning" (van Hasselt et al., 2015)
 """
@@ -46,8 +41,14 @@ class ReplayBuffer:
     def __init__(self, capacity: int = 10000):
         self.buffer = deque(maxlen=capacity)
 
-    def push(self, state, action, reward, next_state, done):
-        self.buffer.append((state, action, reward, next_state, done))
+    def push(self, state, action, reward, next_state, done, current_step=None):
+        """
+        Store transition with optional current_step for step-aware Q-bounds.
+
+        Args:
+            current_step: Current timestep in episode (for dynamic Q_max calculation)
+        """
+        self.buffer.append((state, action, reward, next_state, done, current_step))
 
     def sample(self, batch_size: int) -> List[Tuple]:
         return random.sample(self.buffer, batch_size)
@@ -94,12 +95,26 @@ class DoubleDQNAgent:
         target_update_freq: int = 100,
         device: str = "cpu",
         use_huber_loss: bool = True,
-        gradient_clip: float = 1.0
+        gradient_clip: float = 1.0,
+        use_qclip: bool = False,
+        qclip_max: float = 1.0,
+        qclip_min: float = 0.0,
+        use_step_aware_qbound: bool = False,
+        max_episode_steps: int = 500,
+        step_reward: float = 1.0,
+        reward_is_negative: bool = False
     ):
         """
         Args:
             use_huber_loss: Use Huber loss instead of MSE (more robust to outliers)
             gradient_clip: Maximum gradient norm (prevents exploding gradients)
+            use_qclip: Enable QBound (Q-value clipping)
+            qclip_max: Static upper bound for Q-values
+            qclip_min: Static lower bound for Q-values
+            use_step_aware_qbound: Enable step-aware dynamic Q-bounds
+            max_episode_steps: Maximum episode length (for dynamic Q-bounds)
+            step_reward: Reward magnitude per step (for dynamic Q-bounds)
+            reward_is_negative: True for negative rewards (sparse), False for positive (dense)
         """
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -112,6 +127,15 @@ class DoubleDQNAgent:
         self.device = torch.device(device)
         self.use_huber_loss = use_huber_loss
         self.gradient_clip = gradient_clip
+
+        # QBound parameters
+        self.use_qclip = use_qclip
+        self.qclip_max = qclip_max
+        self.qclip_min = qclip_min
+        self.use_step_aware_qbound = use_step_aware_qbound
+        self.max_episode_steps = max_episode_steps
+        self.step_reward = step_reward
+        self.reward_is_negative = reward_is_negative
 
         # Q-networks
         self.q_network = QNetwork(state_dim, action_dim).to(self.device)
@@ -134,34 +158,69 @@ class DoubleDQNAgent:
             q_values = self.q_network(state_tensor)
             return q_values.argmax().item()
 
-    def store_transition(self, state, action, reward, next_state, done):
-        """Store transition in replay buffer."""
-        self.replay_buffer.push(state, action, reward, next_state, done)
+    def store_transition(self, state, action, reward, next_state, done, current_step=None):
+        """
+        Store transition in replay buffer.
+
+        Args:
+            current_step: Current timestep in episode (for step-aware Q-bounds)
+        """
+        self.replay_buffer.push(state, action, reward, next_state, done, current_step)
 
     def train_step(self) -> float:
         """
-        Perform one training step with Double Q-Learning.
+        Perform one training step with Double Q-Learning and optional QBound.
 
         Double DQN Update:
         1. Select best action using ONLINE network: a* = argmax Q_online(s', a)
         2. Evaluate action using TARGET network: Q_target(s', a*)
-        3. Compute TD target: r + γ * Q_target(s', a*)
-        4. Update online network to minimize TD error
-
-        No Q-value clipping needed!
+        3. Optional QBound: Clip Q_target(s', a*) to environment-aware bounds
+        4. Compute TD target: r + γ * clip(Q_target(s', a*))
+        5. Update online network to minimize TD error
         """
         if len(self.replay_buffer) < self.batch_size:
             return 0.0
 
         # Sample batch
         batch = self.replay_buffer.sample(self.batch_size)
-        states, actions, rewards, next_states, dones = zip(*batch)
+        states, actions, rewards, next_states, dones, current_steps = zip(*batch)
 
         states = torch.FloatTensor(np.array(states)).to(self.device)
         actions = torch.LongTensor(actions).to(self.device)
         rewards = torch.FloatTensor(rewards).to(self.device)
         next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
         dones = torch.FloatTensor(dones).to(self.device)
+
+        # Compute dynamic Q bounds for step-aware QBound
+        if self.use_step_aware_qbound and current_steps[0] is not None:
+            current_steps_tensor = torch.FloatTensor([s if s is not None else 0 for s in current_steps]).to(self.device)
+            remaining_steps_current = self.max_episode_steps - current_steps_tensor
+            remaining_steps_next = torch.clamp(remaining_steps_current - 1, min=0)
+
+            # Dynamic bounds for CURRENT state (time t) - for clipping final target
+            geometric_sum_current = (1 - torch.pow(self.gamma, remaining_steps_current)) / (1 - self.gamma)
+
+            # Dynamic bounds for NEXT state (time t+1) - for clipping next-state Q-values
+            geometric_sum_next = (1 - torch.pow(self.gamma, remaining_steps_next)) / (1 - self.gamma)
+
+            if self.reward_is_negative:
+                # Negative rewards: Q ∈ [Q_min(t), 0]
+                dynamic_qmin_current = -geometric_sum_current * self.step_reward
+                dynamic_qmax_current = torch.zeros_like(dynamic_qmin_current)
+                dynamic_qmin_next = -geometric_sum_next * self.step_reward
+                dynamic_qmax_next = torch.zeros_like(dynamic_qmin_next)
+            else:
+                # Positive rewards: Q ∈ [0, Q_max(t)]
+                dynamic_qmin_current = torch.zeros_like(geometric_sum_current)
+                dynamic_qmax_current = geometric_sum_current * self.step_reward
+                dynamic_qmin_next = torch.zeros_like(geometric_sum_next)
+                dynamic_qmax_next = geometric_sum_next * self.step_reward
+        else:
+            # Use static Q bounds (same for current and next state)
+            dynamic_qmax_current = torch.full((self.batch_size,), self.qclip_max, device=self.device)
+            dynamic_qmin_current = torch.full((self.batch_size,), self.qclip_min, device=self.device)
+            dynamic_qmax_next = torch.full((self.batch_size,), self.qclip_max, device=self.device)
+            dynamic_qmin_next = torch.full((self.batch_size,), self.qclip_min, device=self.device)
 
         # Current Q-values
         current_q_all = self.q_network(states)
@@ -175,8 +234,20 @@ class DoubleDQNAgent:
             # Use TARGET network to EVALUATE that action
             next_q_values = self.target_network(next_states).gather(1, next_actions).squeeze()
 
+            # Optional QBound: STEP 1 - Clip next-state Q-values to bounds at time t+1
+            if self.use_qclip:
+                next_q_values = torch.clamp(next_q_values,
+                                           min=dynamic_qmin_next,
+                                           max=dynamic_qmax_next)
+
             # Compute target Q-values
             target_q_values = rewards + (1 - dones) * self.gamma * next_q_values
+
+            # Optional QBound: STEP 2 - Clip final target to bounds at time t (IMPORTANT!)
+            if self.use_qclip:
+                target_q_values = torch.clamp(target_q_values,
+                                             min=dynamic_qmin_current,
+                                             max=dynamic_qmax_current)
 
         # Compute loss
         if self.use_huber_loss:
