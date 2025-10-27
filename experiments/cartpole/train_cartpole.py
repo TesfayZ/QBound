@@ -270,7 +270,6 @@ def main():
         use_qclip=True,
         qclip_max=500.0,  # Static max (overridden by step-aware)
         qclip_min=0.0,
-        aux_weight=0.0,  # Disabled - using only bootstrapping
         device="cpu",
         use_step_aware_qbound=True,  # Enable step-aware dynamic Q-bounds
         max_episode_steps=500,

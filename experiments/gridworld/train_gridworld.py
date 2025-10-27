@@ -232,7 +232,6 @@ def main():
         use_qclip=True,  # Internal flag, using QBound methodology
         qclip_max=1.0,  # Maximum possible reward in this environment
         qclip_min=0.0,  # Minimum possible reward
-        aux_weight=0.5,  # Weight for auxiliary loss
         device="cpu"
     )
 
