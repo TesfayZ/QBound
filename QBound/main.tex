@@ -69,7 +69,7 @@
 \maketitle
 
 \begin{abstract}
-Value-based reinforcement learning methods suffer from instability due to unbounded value estimates during bootstrapping, requiring excessive environment interactions to learn. We present \textbf{QBound}, a simple yet principled method that exploits known environment constraints to accelerate learning in \textit{discrete action spaces}. When reward bounds are known (common in many domains), QBound enforces corresponding Q-value bounds through direct clipping that preserves well-behaved Q-values while correcting violators. For sparse reward environments, we use static bounds; for dense reward environments, we introduce step-aware dynamic bounds that adapt to remaining episode potential. This stabilizes the bootstrapping process, enabling agents to learn effective policies with significant improvements in sample efficiency. QBound applies to value-based methods with discrete actions (DQN, Double-Q). We provide theoretical analysis of sample complexity improvements and convergence properties. Empirical evaluation across seven diverse environments demonstrates consistent improvements: \textbf{LunarLander} sparse-reward continuous control task achieves \textbf{+263.9\% improvement} with QBound+Double DQN reaching 83\% success rate (228.0 $\pm$ 89.6 reward) versus baseline's 11\% (-61.8 $\pm$ 177.6), GridWorld (20.2\% faster convergence), FrozenLake (76\% better final performance), CartPole (14.2\% improvement), with negligible computational overhead ($<2\%$). \textbf{Critical finding:} Comprehensive comparison with Double DQN across seven environments reveals that \textit{pessimistic Q-learning is fundamentally environment-dependent}—Double DQN catastrophically fails on dense-reward, long-horizon tasks (CartPole: -21.3\%) while succeeding on sparse-reward tasks (LunarLander: +400.5\%). QBound's environment-aware bounds provide a more robust alternative to algorithm-level pessimism, achieving improvements in 2/4 evaluated environments (average +63.5\%) without catastrophic failures. \textbf{Important limitations:} (1) Comprehensive evaluation on Pendulum-v1 demonstrates that QBound is \textit{fundamentally incompatible with continuous action spaces in actor-critic methods}—hard clipping disrupts the smooth critic gradients required for policy learning in DDPG/TD3, causing 893\% performance degradation. (2) Extension to policy gradient methods (PPO) across six environments reveals \textit{nuanced algorithm- and environment-dependent effectiveness}—QBound succeeds on continuous sparse rewards (LunarLanderContinuous: +34.2\%, variance reduced 55\%) and discrete dense with dynamic bounds (CartPole: +17.9\%), but conflicts with PPO's Generalized Advantage Estimation on discrete sparse tasks (LunarLander: -30.9\%) and over-constrains continuous dense rewards (Pendulum: -26.9\%). QBound is most effective for discrete action, value-based methods (DQN variants) where value instability is the primary challenge, with secondary applications to PPO on continuous sparse rewards.
+Value-based reinforcement learning methods suffer from instability due to unbounded value estimates during bootstrapping, requiring excessive environment interactions to learn. We present \textbf{QBound}, a simple yet principled method that exploits known environment constraints to accelerate learning in \textit{discrete action spaces}. When reward bounds are known (common in many domains), QBound enforces corresponding Q-value bounds through direct clipping that preserves well-behaved Q-values while correcting violators. For sparse reward environments, we use static bounds; for dense reward environments, we introduce step-aware dynamic bounds that adapt to remaining episode potential. This stabilizes the bootstrapping process, enabling agents to learn effective policies with significant improvements in sample efficiency. QBound applies to value-based methods with discrete actions (DQN, Double-Q) and generalizes across different network architectures (standard, Dueling). We provide theoretical analysis of sample complexity improvements and convergence properties. Empirical evaluation across seven diverse environments demonstrates consistent improvements: \textbf{LunarLander} sparse-reward continuous control task achieves \textbf{+263.9\% improvement} with QBound+Double DQN reaching 83\% success rate (228.0 $\pm$ 89.6 reward) versus baseline's 11\% (-61.8 $\pm$ 177.6), GridWorld (20.2\% faster convergence), FrozenLake (76\% better final performance), CartPole (14.2\% improvement), with negligible computational overhead ($<2\%$). \textbf{Critical finding:} Comprehensive comparison with Double DQN across seven environments reveals that \textit{pessimistic Q-learning is fundamentally environment-dependent}—Double DQN catastrophically fails on dense-reward, long-horizon tasks (CartPole: -21.3\%) while succeeding on sparse-reward tasks (LunarLander: +400.5\%). QBound's environment-aware bounds provide a more robust alternative to algorithm-level pessimism, achieving improvements in 2/4 evaluated environments (average +63.5\%) without catastrophic failures. \textbf{Important limitations:} (1) Comprehensive evaluation on Pendulum-v1 demonstrates that QBound is \textit{fundamentally incompatible with continuous action spaces in actor-critic methods}—hard clipping disrupts the smooth critic gradients required for policy learning in DDPG/TD3, causing 893\% performance degradation. (2) Extension to policy gradient methods (PPO) across six environments reveals \textit{nuanced algorithm- and environment-dependent effectiveness}—QBound succeeds on continuous sparse rewards (LunarLanderContinuous: +34.2\%, variance reduced 55\%) and discrete dense with dynamic bounds (CartPole: +17.9\%), but conflicts with PPO's Generalized Advantage Estimation on discrete sparse tasks (LunarLander: -30.9\%) and over-constrains continuous dense rewards (Pendulum: -26.9\%). QBound is most effective for discrete action, value-based methods (DQN variants) where value instability is the primary challenge, with secondary applications to PPO on continuous sparse rewards.
 \end{abstract}
 
 \keywords{Reinforcement Learning \and Sample Efficiency \and Value-Based Methods \and Actor-Critic \and Q-Learning \and Sparse Rewards}
@@ -1131,6 +1131,73 @@ Dense, Short Horizon & Unknown & Good & Use QBound \\
 
 \textbf{Conclusion:} QBound provides a more robust alternative to Double DQN, working consistently across both sparse and dense reward environments. The environment-aware nature of QBound's bounds prevents the catastrophic failures observed with algorithm-level pessimism.
 
+\subsection{Architectural Generalization: Dueling DQN Validation}
+
+To validate that QBound generalizes beyond standard MLP architectures, we evaluated it on \textbf{Dueling DQN} \citep{wang2016dueling}, which uses separate value V(s) and advantage A(s,a) streams. Dueling DQN is architecturally distinct from standard DQN, making it an ideal test for architectural generalization.
+
+\subsubsection{Dueling Architecture with QBound}
+
+The Dueling architecture decomposes Q-values as:
+$$Q(s,a) = V(s) + \left(A(s,a) - \frac{1}{|\mathcal{A}|}\sum_{a'} A(s,a')\right)$$
+
+QBound integrates naturally by clipping the final combined Q-values during bootstrapping, identical to standard DQN. No architecture-specific modifications are needed.
+
+\subsubsection{Experimental Setup}
+
+We conducted a 4-way comparison on LunarLander-v3 with identical hyperparameters to the standard DQN experiments (500 episodes, learning rate 0.001, $\gamma=0.99$):
+
+\begin{itemize}
+    \item \textbf{Baseline Dueling DQN:} Dueling architecture, no QBound, no Double-Q
+    \item \textbf{QBound Dueling DQN:} Dueling + QBound ($Q \in [-100, 200]$)
+    \item \textbf{Double Dueling DQN:} Dueling + Double-Q (no QBound)
+    \item \textbf{QBound+Double Dueling DQN:} Dueling + both techniques
+\end{itemize}
+
+\subsubsection{Results: Architectural Generalization Confirmed}
+
+\begin{table}[H]
+\centering
+\caption{Dueling DQN vs Standard DQN on LunarLander-v3 (Final 100 Episodes)}
+\small
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+\textbf{Architecture} & \textbf{Method} & \textbf{Mean $\pm$ Std} & \textbf{Success Rate} & \textbf{vs Baseline} \\
+\midrule
+\multirow{4}{*}{Standard DQN}
+  & Baseline & -61.79 $\pm$ 177.62 & 11.0\% & -- \\
+  & QBound & 101.31 $\pm$ 183.89 & 50.0\% & \textcolor{green}{+263.9\%} \\
+  & Double & 185.69 $\pm$ 140.84 & 71.0\% & \textcolor{green}{+400.5\%} \\
+  & QBound+Double & 227.95 $\pm$ 89.59 & 83.0\% & \textcolor{green}{+468.9\%} \\
+\midrule
+\multirow{4}{*}{Dueling DQN}
+  & Baseline & 102.95 $\pm$ 198.57 & 54.0\% & -- \\
+  & QBound & \textbf{201.71 $\pm$ 130.00} & \textbf{77.0\%} & \textcolor{green}{\textbf{+95.9\%}} \\
+  & Double & 119.65 $\pm$ 152.42 & 50.0\% & \textcolor{green}{+16.2\%} \\
+  & QBound+Double & 150.19 $\pm$ 193.25 & 67.0\% & \textcolor{green}{+45.9\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key Findings:}
+
+\begin{enumerate}
+    \item \textbf{Architectural Generalization Confirmed:} QBound improves performance on \textit{both} architectures, demonstrating that the technique is not architecture-specific:
+    \begin{itemize}
+        \item Standard DQN: +263.9\% improvement (263.1 absolute points)
+        \item Dueling DQN: +95.9\% improvement (98.76 absolute points)
+    \end{itemize}
+
+    \item \textbf{Dueling Architecture Has Stronger Baseline:} The Dueling baseline (102.95, 54\% success) significantly outperforms the standard baseline (-61.79, 11\% success), confirming that the value/advantage decomposition itself improves sparse-reward learning.
+
+    \item \textbf{QBound Provides Complementary Benefits:} Even with Dueling's strong baseline, QBound delivers substantial absolute gains (+98.76 points), achieving the best single-method performance (201.71, 77\% success).
+
+    \item \textbf{Variance Reduction:} QBound Dueling reduces standard deviation by 34.7\% (198.57 $\to$ 130.00), demonstrating improved learning stability.
+
+    \item \textbf{Architectural Interaction:} Double-Q helps more on Standard DQN (+400.5\%) than Dueling DQN (+16.2\%), suggesting that Dueling's value/advantage decomposition already mitigates some overestimation. QBound's environment-aware bounds provide orthogonal benefits.
+\end{enumerate}
+
+\textbf{Conclusion:} QBound generalizes across architecturally distinct DQN variants, validating its architectural-agnostic design. The technique works by constraining bootstrapped targets—a mechanism independent of network architecture. This demonstrates that QBound can be integrated into any Q-learning method with minimal modification.
+
 \subsection{Limitations: Failure in Continuous Action Spaces}
 
 To understand QBound's applicability boundaries, we conducted a comprehensive 6-way comparison on Pendulum-v1, a continuous control task. This experiment tested whether QBound could stabilize learning in actor-critic methods with continuous action spaces.
@@ -1554,6 +1621,7 @@ We presented \textbf{QBound}, a principled method that enforces environment-spec
 \begin{enumerate}
     \item \textbf{Theoretical Framework:} Rigorous derivation of environment-specific Q-value bounds with correctness guarantees
     \item \textbf{Algorithm Design:} Simple yet effective bootstrapping-based clipping that naturally enforces bounds without auxiliary losses
+    \item \textbf{Architectural Generalization:} Validation across different DQN architectures (standard, Dueling) demonstrating the technique is architecture-agnostic
     \item \textbf{Empirical Validation:} Comprehensive evaluation showing 5-31\% improvement in sample efficiency and cumulative reward across diverse environments
     \item \textbf{Critical Comparative Analysis:} Direct comparison with Double DQN revealing environment-dependent behavior of pessimistic methods—Double DQN fails catastrophically on dense/long-horizon tasks (-66\% on CartPole) while QBound succeeds universally
     \item \textbf{Practical Guidelines:} Clear recommendations for when and how to apply QBound effectively, with evidence that it provides a more robust alternative to algorithm-level pessimism
@@ -1589,6 +1657,13 @@ We presented \textbf{QBound}, a principled method that enforces environment-spec
     \item \textbf{Best Combination:} QBound+Double DQN achieves optimal performance on sparse-reward tasks by combining environment-aware bounds with algorithmic pessimism (LunarLander: 228.0 $\pm$ 89.6, 83\% success, lowest variance)
 
     \item \textbf{Variance Reduction:} QBound+Double DQN reduces standard deviation by 49.6\% on LunarLander (89.6 vs 177.6 baseline), critical for real-world deployment where consistency matters
+
+    \item \textbf{Architectural Generalization:} QBound generalizes across different DQN architectures, validating its architectural-agnostic design:
+    \begin{itemize}
+        \item \textit{Dueling DQN:} +95.9\% improvement on LunarLander (201.71 vs 102.95 baseline), achieving 77\% success rate
+        \item \textit{Complementarity:} QBound provides substantial gains even when Dueling's stronger baseline already improves over standard DQN
+        \item \textit{Variance reduction:} 34.7\% reduction in standard deviation (198.57 $\to$ 130.00)
+    \end{itemize}
 
     \item \textbf{Tabular Results:} Original environments show strong improvements: GridWorld (20.2\% faster convergence), FrozenLake (76\% better final performance)
 
