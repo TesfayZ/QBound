@@ -38,7 +38,11 @@
       "Bash(if [ -d .git ])",
       "Bash(then echo \"Git already initialized\")",
       "Bash(else echo \"No git repo found\")",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "WebSearch",
+      "Bash(bibtex:*)",
+      "Bash(spell:*)",
+      "Bash(pdfinfo:*)"
     ],
     "deny": [],
     "ask": []
