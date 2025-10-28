@@ -20,8 +20,8 @@ def load_latest_results(results_dir="/root/projects/QBound/results/ppo"):
     results = {}
 
     environments = {
-        'cartpole': 'CartPole',
-        'lunarlander': 'LunarLander',
+        'cartpole_pilot': 'CartPole',
+        'lunarlander_pilot': 'LunarLander',
         'acrobot': 'Acrobot',
         'mountaincar': 'MountainCar',
         'pendulum': 'Pendulum',
