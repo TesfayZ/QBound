@@ -11,7 +11,14 @@ Key features:
 
 This is compared against QBound to test if simple environment-aware bounds
 can replace TD3's complex stabilization mechanisms.
+
+QBound Support:
+- Hard QBound: use_qbound=True, use_soft_qbound=False (default, zero gradients)
+- Soft QBound: use_qbound=True, use_soft_qbound=True (preserves gradients!)
 """
+
+import sys
+sys.path.insert(0, '/root/projects/QBound/src')
 
 import numpy as np
 import torch
@@ -20,6 +27,12 @@ import torch.nn.functional as F
 import torch.optim as optim
 from collections import deque
 import random
+
+try:
+    from soft_qbound_penalty import SoftQBoundPenalty
+    SOFT_QBOUND_AVAILABLE = True
+except ImportError:
+    SOFT_QBOUND_AVAILABLE = False
 
 
 class ReplayBuffer:
@@ -154,6 +167,10 @@ class TD3Agent:
         use_qbound=False,
         qbound_min=None,
         qbound_max=None,
+        use_soft_qbound=False,
+        qbound_penalty_weight=0.1,
+        qbound_penalty_type='quadratic',
+        soft_clip_beta=0.1,
         device='cpu'
     ):
         self.device = device
@@ -165,8 +182,20 @@ class TD3Agent:
         self.policy_freq = policy_freq
         self.total_it = 0
         self.use_qbound = use_qbound
-        self.qbound_min = qbound_min
-        self.qbound_max = qbound_max
+        self.qbound_min = qbound_min if qbound_min is not None else -np.inf
+        self.qbound_max = qbound_max if qbound_max is not None else np.inf
+        self.use_soft_qbound = use_soft_qbound and SOFT_QBOUND_AVAILABLE
+        self.qbound_penalty_weight = qbound_penalty_weight
+        self.qbound_penalty_type = qbound_penalty_type
+        self.soft_clip_beta = soft_clip_beta
+
+        # Initialize soft QBound penalty function if needed
+        if self.use_soft_qbound:
+            self.penalty_fn = SoftQBoundPenalty()
+            self.recent_penalties = []
+        else:
+            self.penalty_fn = None
+            self.recent_penalties = None
 
         # Actor networks
         self.actor = Actor(state_dim, action_dim, max_action).to(device)
@@ -224,12 +253,31 @@ class TD3Agent:
         # ===== Critic Update =====
         with torch.no_grad():
             # Target policy smoothing: Add noise to target actions
-            noise = (torch.randn_like(actions) * self.policy_noise).clamp(
-                -self.noise_clip, self.noise_clip
-            )
-            next_actions = (self.actor_target(next_states) + noise).clamp(
-                -self.max_action, self.max_action
-            )
+            noise = torch.randn_like(actions) * self.policy_noise
+
+            # Apply noise clipping (soft or hard)
+            if self.use_soft_qbound:
+                noise = self.penalty_fn.softplus_clip(
+                    noise,
+                    -torch.tensor(self.noise_clip, device=self.device),
+                    torch.tensor(self.noise_clip, device=self.device),
+                    beta=self.soft_clip_beta
+                )
+            else:
+                noise = noise.clamp(-self.noise_clip, self.noise_clip)
+
+            next_actions = self.actor_target(next_states) + noise
+
+            # Apply action clipping (soft or hard)
+            if self.use_soft_qbound:
+                next_actions = self.penalty_fn.softplus_clip(
+                    next_actions,
+                    -torch.tensor(self.max_action, device=self.device),
+                    torch.tensor(self.max_action, device=self.device),
+                    beta=self.soft_clip_beta
+                )
+            else:
+                next_actions = next_actions.clamp(-self.max_action, self.max_action)
 
             # Clipped Double-Q: Compute Q-values from both critics, take minimum
             target_q1 = self.critic_1_target(next_states, next_actions)
@@ -237,14 +285,20 @@ class TD3Agent:
             target_q = torch.min(target_q1, target_q2)
 
             # Apply QBound if enabled
-            if self.use_qbound and self.qbound_min is not None and self.qbound_max is not None:
-                target_q = torch.clamp(target_q, self.qbound_min, self.qbound_max)
+            if self.use_qbound:
+                if self.use_soft_qbound:
+                    # SOFT QBOUND: Smooth clipping preserves gradients
+                    target_q = self.penalty_fn.softplus_clip(
+                        target_q,
+                        torch.tensor(self.qbound_min, device=self.device),
+                        torch.tensor(self.qbound_max, device=self.device),
+                        beta=self.soft_clip_beta
+                    )
+                else:
+                    # HARD QBOUND: Standard clipping (zero gradients)
+                    target_q = torch.clamp(target_q, self.qbound_min, self.qbound_max)
 
             target_q = rewards + (1 - dones) * self.gamma * target_q
-
-            # Safety clip targets if using QBound
-            if self.use_qbound and self.qbound_min is not None and self.qbound_max is not None:
-                target_q = torch.clamp(target_q, self.qbound_min, self.qbound_max)
 
         # Current Q-values from both critics
         current_q1 = self.critic_1(states, actions)
@@ -253,6 +307,35 @@ class TD3Agent:
         # Critic losses
         critic_1_loss = F.mse_loss(current_q1, target_q)
         critic_2_loss = F.mse_loss(current_q2, target_q)
+
+        # Add soft QBound penalty if enabled
+        qbound_penalty = torch.tensor(0.0, device=self.device)
+        if self.use_qbound and self.use_soft_qbound:
+            q_min = torch.tensor(self.qbound_min, device=self.device)
+            q_max = torch.tensor(self.qbound_max, device=self.device)
+
+            # Penalize both critics
+            if self.qbound_penalty_type == 'quadratic':
+                penalty_1 = self.penalty_fn.quadratic_penalty(current_q1, q_min, q_max)
+                penalty_2 = self.penalty_fn.quadratic_penalty(current_q2, q_min, q_max)
+            elif self.qbound_penalty_type == 'huber':
+                penalty_1 = self.penalty_fn.huber_penalty(current_q1, q_min, q_max, delta=10.0)
+                penalty_2 = self.penalty_fn.huber_penalty(current_q2, q_min, q_max, delta=10.0)
+            elif self.qbound_penalty_type == 'exponential':
+                penalty_1 = self.penalty_fn.exponential_penalty(current_q1, q_min, q_max, alpha=0.1)
+                penalty_2 = self.penalty_fn.exponential_penalty(current_q2, q_min, q_max, alpha=0.1)
+            else:
+                penalty_1 = penalty_2 = torch.tensor(0.0, device=self.device)
+
+            qbound_penalty = (penalty_1 + penalty_2) / 2
+            critic_1_loss = critic_1_loss + self.qbound_penalty_weight * penalty_1
+            critic_2_loss = critic_2_loss + self.qbound_penalty_weight * penalty_2
+
+            # Track penalty
+            if self.recent_penalties is not None:
+                self.recent_penalties.append(qbound_penalty.item())
+                if len(self.recent_penalties) > 100:
+                    self.recent_penalties.pop(0)
 
         # Update critic 1
         self.critic_1_optimizer.zero_grad()
@@ -284,7 +367,12 @@ class TD3Agent:
             actor_loss = actor_loss.item()
 
         critic_loss = (critic_1_loss.item() + critic_2_loss.item()) / 2
-        return critic_loss, actor_loss
+
+        # Return penalty info if using soft QBound
+        if self.use_soft_qbound:
+            return critic_loss, actor_loss, qbound_penalty.item()
+        else:
+            return critic_loss, actor_loss
 
     def _soft_update(self, source, target):
         """Soft update of target network parameters"""

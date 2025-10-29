@@ -15,12 +15,25 @@ Critical difference from DDPG/TD3:
 - DDPG/TD3 clip Q(s,a), disrupting ∇_a Q needed for deterministic policy
 - PPO clips V(s), which doesn't affect policy gradient ∇_θ log π(a|s)
 - This should work even for continuous action spaces!
+
+QBound Support:
+- Hard QBound: use_soft_qbound=False (default, hard clipping)
+- Soft QBound: use_soft_qbound=True (smooth penalties, preserves gradients)
 """
+
+import sys
+sys.path.insert(0, '/root/projects/QBound/src')
 
 import torch
 import torch.nn.functional as F
 import numpy as np
 from ppo_agent import PPOAgent
+
+try:
+    from soft_qbound_penalty import SoftQBoundPenalty
+    SOFT_QBOUND_AVAILABLE = True
+except ImportError:
+    SOFT_QBOUND_AVAILABLE = False
 
 
 class PPOQBoundAgent(PPOAgent):
@@ -42,6 +55,10 @@ class PPOQBoundAgent(PPOAgent):
         use_step_aware_bounds=False,
         max_episode_steps=None,
         step_reward=None,
+        use_soft_qbound=False,
+        qbound_penalty_weight=0.1,
+        qbound_penalty_type='quadratic',
+        soft_clip_beta=0.1,
         **kwargs  # Pass through to PPOAgent
     ):
         super().__init__(state_dim, action_dim, continuous_action, **kwargs)
@@ -52,6 +69,18 @@ class PPOQBoundAgent(PPOAgent):
         self.use_step_aware_bounds = use_step_aware_bounds
         self.max_episode_steps = max_episode_steps
         self.step_reward = step_reward
+        self.use_soft_qbound = use_soft_qbound and SOFT_QBOUND_AVAILABLE
+        self.qbound_penalty_weight = qbound_penalty_weight
+        self.qbound_penalty_type = qbound_penalty_type
+        self.soft_clip_beta = soft_clip_beta
+
+        # Initialize soft QBound penalty function if needed
+        if self.use_soft_qbound:
+            self.penalty_fn = SoftQBoundPenalty()
+            self.recent_penalties = []
+        else:
+            self.penalty_fn = None
+            self.recent_penalties = None
 
         # Tracking QBound statistics
         self.bound_violations = 0
@@ -103,7 +132,18 @@ class PPOQBoundAgent(PPOAgent):
                 V_min, V_max = self.V_min, self.V_max
 
             # Apply bounds to next value during bootstrapping
-            next_value_bounded = np.clip(next_values[t], V_min, V_max)
+            if self.use_soft_qbound:
+                # SOFT CLIPPING: Smooth bounds (preserves gradient-like behavior)
+                next_value_tensor = torch.FloatTensor([next_values[t]])
+                next_value_bounded = self.penalty_fn.softplus_clip(
+                    next_value_tensor,
+                    torch.tensor(V_min, dtype=torch.float32),
+                    torch.tensor(V_max, dtype=torch.float32),
+                    beta=self.soft_clip_beta
+                ).item()
+            else:
+                # HARD CLIPPING: Standard clipping
+                next_value_bounded = np.clip(next_values[t], V_min, V_max)
 
             # Track if bound was violated
             if next_values[t] < V_min or next_values[t] > V_max:
@@ -125,11 +165,37 @@ class PPOQBoundAgent(PPOAgent):
         returns = [adv + val for adv, val in zip(advantages, values)]
 
         # Apply bounds to returns as well (prevent target from being unbounded)
-        if steps is not None and self.use_step_aware_bounds:
-            returns = [np.clip(ret, *self.compute_bounds(step))
-                      for ret, step in zip(returns, steps)]
+        if self.use_soft_qbound:
+            # SOFT CLIPPING for returns
+            if steps is not None and self.use_step_aware_bounds:
+                returns_clipped = []
+                for ret, step in zip(returns, steps):
+                    V_min_s, V_max_s = self.compute_bounds(step)
+                    ret_tensor = torch.FloatTensor([ret])
+                    ret_clipped = self.penalty_fn.softplus_clip(
+                        ret_tensor,
+                        torch.tensor(V_min_s, dtype=torch.float32),
+                        torch.tensor(V_max_s, dtype=torch.float32),
+                        beta=self.soft_clip_beta
+                    ).item()
+                    returns_clipped.append(ret_clipped)
+                returns = returns_clipped
+            else:
+                returns_tensor = torch.FloatTensor(returns)
+                returns_clipped = self.penalty_fn.softplus_clip(
+                    returns_tensor,
+                    torch.tensor(self.V_min, dtype=torch.float32),
+                    torch.tensor(self.V_max, dtype=torch.float32),
+                    beta=self.soft_clip_beta
+                )
+                returns = returns_clipped.tolist()
         else:
-            returns = [np.clip(ret, self.V_min, self.V_max) for ret in returns]
+            # HARD CLIPPING for returns
+            if steps is not None and self.use_step_aware_bounds:
+                returns = [np.clip(ret, *self.compute_bounds(step))
+                          for ret, step in zip(returns, steps)]
+            else:
+                returns = [np.clip(ret, self.V_min, self.V_max) for ret in returns]
 
         # Update statistics
         self.bound_violations += violations
@@ -220,26 +286,97 @@ class PPOQBoundAgent(PPOAgent):
                 # ===== Critic Update WITH BOUNDS =====
                 value_pred = self.critic(mb_states)
 
-                # Track predictions before clipping
+                # Track predictions before any modifications
                 value_preds_before_clip.extend(value_pred.detach().cpu().numpy())
 
-                # Apply bounds to predictions (soft enforcement during training)
-                if steps is not None and self.use_step_aware_bounds:
-                    # Dynamic bounds per step
-                    mb_steps = [steps[i] for i in mb_indices]
-                    value_pred_bounded = torch.stack([
-                        torch.clamp(v, *self.compute_bounds(step))
-                        for v, step in zip(value_pred, mb_steps)
-                    ])
+                # Compute critic loss and penalties
+                if self.use_soft_qbound:
+                    # SOFT QBOUND: Add smooth penalty instead of hard clipping
+                    critic_loss = F.mse_loss(value_pred, mb_returns)
+
+                    # Compute penalty
+                    if steps is not None and self.use_step_aware_bounds:
+                        mb_steps = [steps[i] for i in mb_indices]
+                        penalties = []
+                        for v, step in zip(value_pred, mb_steps):
+                            V_min_s, V_max_s = self.compute_bounds(step)
+                            if self.qbound_penalty_type == 'quadratic':
+                                p = self.penalty_fn.quadratic_penalty(
+                                    v.unsqueeze(0),
+                                    torch.tensor(V_min_s, device=self.device),
+                                    torch.tensor(V_max_s, device=self.device)
+                                )
+                            elif self.qbound_penalty_type == 'huber':
+                                p = self.penalty_fn.huber_penalty(
+                                    v.unsqueeze(0),
+                                    torch.tensor(V_min_s, device=self.device),
+                                    torch.tensor(V_max_s, device=self.device),
+                                    delta=10.0
+                                )
+                            elif self.qbound_penalty_type == 'exponential':
+                                p = self.penalty_fn.exponential_penalty(
+                                    v.unsqueeze(0),
+                                    torch.tensor(V_min_s, device=self.device),
+                                    torch.tensor(V_max_s, device=self.device),
+                                    alpha=0.1
+                                )
+                            else:
+                                p = torch.tensor(0.0, device=self.device)
+                            penalties.append(p)
+                        value_penalty = torch.stack(penalties).mean()
+                    else:
+                        # Static bounds
+                        if self.qbound_penalty_type == 'quadratic':
+                            value_penalty = self.penalty_fn.quadratic_penalty(
+                                value_pred,
+                                torch.tensor(self.V_min, device=self.device),
+                                torch.tensor(self.V_max, device=self.device)
+                            )
+                        elif self.qbound_penalty_type == 'huber':
+                            value_penalty = self.penalty_fn.huber_penalty(
+                                value_pred,
+                                torch.tensor(self.V_min, device=self.device),
+                                torch.tensor(self.V_max, device=self.device),
+                                delta=10.0
+                            )
+                        elif self.qbound_penalty_type == 'exponential':
+                            value_penalty = self.penalty_fn.exponential_penalty(
+                                value_pred,
+                                torch.tensor(self.V_min, device=self.device),
+                                torch.tensor(self.V_max, device=self.device),
+                                alpha=0.1
+                            )
+                        else:
+                            value_penalty = torch.tensor(0.0, device=self.device)
+
+                    critic_loss = critic_loss + self.qbound_penalty_weight * value_penalty
+
+                    # Track penalty
+                    if self.recent_penalties is not None:
+                        self.recent_penalties.append(value_penalty.item())
+                        if len(self.recent_penalties) > 100:
+                            self.recent_penalties.pop(0)
+
+                    # For tracking, use original predictions
+                    value_preds_after_clip.extend(value_pred.detach().cpu().numpy())
                 else:
-                    # Static bounds
-                    value_pred_bounded = torch.clamp(value_pred, self.V_min, self.V_max)
+                    # HARD QBOUND: Apply bounds to predictions (standard clipping)
+                    if steps is not None and self.use_step_aware_bounds:
+                        # Dynamic bounds per step
+                        mb_steps = [steps[i] for i in mb_indices]
+                        value_pred_bounded = torch.stack([
+                            torch.clamp(v, *self.compute_bounds(step))
+                            for v, step in zip(value_pred, mb_steps)
+                        ])
+                    else:
+                        # Static bounds
+                        value_pred_bounded = torch.clamp(value_pred, self.V_min, self.V_max)
 
-                # Track predictions after clipping
-                value_preds_after_clip.extend(value_pred_bounded.detach().cpu().numpy())
+                    # Track predictions after clipping
+                    value_preds_after_clip.extend(value_pred_bounded.detach().cpu().numpy())
 
-                # Compute loss using bounded predictions
-                critic_loss = F.mse_loss(value_pred_bounded, mb_returns)
+                    # Compute loss using bounded predictions
+                    critic_loss = F.mse_loss(value_pred_bounded, mb_returns)
 
                 self.optimizer_critic.zero_grad()
                 critic_loss.backward()

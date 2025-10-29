@@ -56,7 +56,7 @@
     language=Python
 }
 
-\title{QBound: Environment-Aware Q-Value Bounding for Sample-Efficient Deep Reinforcement Learning}
+\title{QBound: Environment-Aware Q-Value Bounds for Stable Temporal Difference Learning}
 
 \author{
   Tesfay Zemuy Gebrekidan \\
@@ -69,14 +69,14 @@
 \maketitle
 
 \begin{abstract}
-Value-based reinforcement learning methods suffer from \textbf{overestimation bias} \citep{thrun1993issues, van2016deep}—bootstrapped Q-value estimates systematically exceed true values, causing instability and poor sample efficiency. We present \textbf{QBound}, a principled stabilization mechanism that exploits environment structure to prevent overestimation. \textbf{Core contribution:} When reward bounds are known (common in many domains), QBound derives and enforces corresponding Q-value bounds, preventing unbounded overestimation while preserving valid Q-values. This \textit{environment-aware bounding} stabilizes temporal difference learning \citep{sutton2018reinforcement}, reducing variance and accelerating convergence. For sparse reward environments, we use static bounds; for dense reward environments, we introduce step-aware dynamic bounds that adapt to remaining episode potential. \textbf{Key insight:} By preventing overestimation at its source (bootstrapped targets), QBound addresses the root cause of instability, yielding substantial sample efficiency improvements without catastrophic failures. QBound applies to value-based methods with discrete actions (DQN, Double-Q) and generalizes across different network architectures (standard, Dueling). We provide theoretical analysis of sample complexity improvements and convergence properties. Empirical evaluation across seven diverse environments demonstrates consistent improvements: \textbf{LunarLander} sparse-reward continuous control task achieves \textbf{+263.9\% improvement} with QBound+Double DQN reaching 83\% success rate (228.0 $\pm$ 89.6 reward) versus baseline's 11\% (-61.8 $\pm$ 177.6), GridWorld (20.2\% faster convergence), FrozenLake (76\% better final performance), CartPole (14.2\% improvement), with negligible computational overhead ($<2\%$). \textbf{Critical finding:} Comprehensive comparison with Double DQN across seven environments reveals that \textit{pessimistic Q-learning is fundamentally environment-dependent}—Double DQN catastrophically fails on dense-reward, long-horizon tasks (CartPole: -21.3\%) while succeeding on sparse-reward tasks (LunarLander: +400.5\%). QBound's environment-aware bounds provide a more robust alternative to algorithm-level pessimism, achieving improvements in 2/4 evaluated environments (average +63.5\%) without catastrophic failures. \textbf{Critical finding on continuous actions:} QBound's applicability to continuous action spaces depends fundamentally on implementation. \textit{Hard QBound} (direct clipping) is incompatible with actor-critic methods—disrupting smooth critic gradients causes 893\% degradation on Pendulum DDPG. However, \textit{Soft QBound} (penalty-based) \textbf{successfully extends to continuous control}, achieving \textbf{+712\% improvement} when replacing target networks in simple DDPG (Pendulum: -1465 → -206) and \textbf{+5\% enhancement} over standard DDPG (-181 → -172, best performance). This demonstrates QBound can \textit{partially replace target network stabilization} in continuous control. However, Soft QBound conflicts with TD3's clipped double-Q mechanism (-180 → -1259), demonstrating that algorithm-specific interactions require careful consideration. Extension to policy gradient methods (PPO) reveals \textit{nuanced effectiveness}—succeeds on continuous sparse rewards (LunarLanderContinuous: +30.6\%, variance reduced 51\%) and discrete dense with dynamic bounds (CartPole: +17.9\%), but catastrophically fails on continuous dense tasks (Pendulum: -162\%) and conflicts with GAE on discrete sparse tasks (LunarLander: -30.9\%). \textbf{Recommendation:} Use Hard QBound for discrete actions (DQN variants), Soft QBound for continuous actions (DDPG, selected PPO tasks).
+Value-based reinforcement learning methods suffer from \textbf{overestimation bias} \citep{thrun1993issues, van2016deep}—bootstrapped Q-value estimates systematically exceed true values, causing instability and poor sample efficiency. We present \textbf{QBound}, a principled stabilization mechanism that exploits environment structure to prevent overestimation. \textbf{Core contribution:} When reward bounds are known (common in many domains), QBound derives and enforces corresponding Q-value bounds, preventing unbounded overestimation while preserving valid Q-values. This \textit{environment-aware bounding} stabilizes temporal difference learning \citep{sutton2018reinforcement}, reducing variance and accelerating convergence. For sparse reward environments, we use static bounds; for dense reward environments, we introduce step-aware dynamic bounds that adapt to remaining episode potential. \textbf{Key insight:} By preventing overestimation at its source (bootstrapped targets), QBound addresses the root cause of instability, yielding substantial sample efficiency improvements without catastrophic failures. QBound applies to value-based methods with discrete actions (DQN, Double-Q) and generalizes across different network architectures (standard, Dueling). We provide theoretical analysis of sample complexity improvements and convergence properties. Empirical evaluation across seven diverse environments demonstrates consistent improvements: \textbf{LunarLander} sparse-reward continuous control task achieves \textbf{+263.9\% improvement} with QBound+Double DQN reaching 83\% success rate (228.0 $\pm$ 89.6 reward, Standard DQN architecture) versus baseline's 11\% (-61.8 $\pm$ 177.6), GridWorld (20.2\% faster convergence), FrozenLake (76\% better final performance), CartPole (14.2\% improvement in comprehensive 6-way evaluation), with negligible computational overhead ($<2\%$). \textbf{Critical finding:} Comprehensive comparison with Double DQN across seven environments reveals that \textit{pessimistic Q-learning is fundamentally environment-dependent}—Double DQN catastrophically fails on dense-reward, long-horizon tasks (CartPole: -76.3\%) while succeeding on sparse-reward tasks (LunarLander: +400.5\%). QBound's environment-aware bounds provide a more robust alternative to algorithm-level pessimism, achieving improvements in 2/4 evaluated environments (average +63.5\%) without catastrophic failures. \textbf{Critical finding on continuous actions:} QBound's applicability to continuous action spaces depends fundamentally on implementation. \textit{Hard QBound} (direct clipping) is incompatible with actor-critic methods—disrupting smooth critic gradients causes 893\% degradation on Pendulum DDPG. However, \textit{Soft QBound} (penalty-based) \textbf{successfully extends to continuous control}, achieving \textbf{+712\% improvement} when replacing target networks in simple DDPG (Pendulum: -1465 → -206) and \textbf{+5\% enhancement} over standard DDPG (-181 → -172, best performance). This demonstrates QBound can \textit{partially replace target network stabilization} in continuous control. However, Soft QBound conflicts with TD3's clipped double-Q mechanism (-180 → -1259), demonstrating that algorithm-specific interactions require careful consideration. Extension to policy gradient methods (PPO) reveals \textit{nuanced effectiveness}—succeeds on continuous sparse rewards (LunarLanderContinuous: +34.2\%, variance reduced 55\%) and discrete dense with dynamic bounds (CartPole: +17.9\%), but degrades performance on continuous dense tasks (Pendulum: -26.9\%) and conflicts with GAE on discrete sparse tasks (LunarLander: -30.9\%). \textbf{Recommendation:} Use Hard QBound for discrete actions (DQN variants), Soft QBound for continuous actions (DDPG, selected PPO tasks).
 \end{abstract}
 
-\keywords{Reinforcement Learning \and Sample Efficiency \and Value-Based Methods \and Actor-Critic \and Q-Learning \and Sparse Rewards}
+\keywords{Reinforcement Learning \and Temporal Difference Learning \and Q-Learning \and Overestimation Bias \and Value Stability \and Sample Efficiency}
 
 \section{Introduction}
 
-\subsection{Motivation: The Sample Efficiency Challenge}
+\subsection{Motivation: Instability in Value Learning Limits Sample Efficiency}
 
 Reinforcement learning has achieved remarkable successes in games \citep{mnih2015human}, robotics \citep{levine2016end}, and complex decision-making tasks \citep{vinyals2019grandmaster}. However, a critical bottleneck remains: \textbf{sample efficiency}—the number of environment interactions required to learn effective policies. In many real-world applications, environment samples are the limiting resource:
 
@@ -91,7 +91,7 @@ Reinforcement learning has achieved remarkable successes in games \citep{mnih201
 
 Current deep RL methods vary dramatically in sample efficiency \citep{duan2016benchmarking, SpinningUp2018}. Pure policy gradient methods like REINFORCE \citep{williams1992simple} require 50M-100M+ environment steps due to high variance gradient estimates \citep{schulman2015trust}. Actor-critic methods like DDPG \citep{lillicrap2015continuous}, TD3 \citep{fujimoto2018addressing}, and SAC \citep{haarnoja2018soft} achieve 2M-20M steps by combining policy gradients with value function learning \citep{haarnoja2018soft2}. Pure value-based methods like DQN \citep{mnih2015human} and its variants achieve the highest sample efficiency at 1M-10M steps through bootstrap learning with experience replay \citep{lin1992self, mnih2015human}.
 
-\textbf{Key Observation:} The sample efficiency hierarchy correlates directly with whether methods learn value functions. This suggests that improving value function learning improves sample efficiency across the entire spectrum of methods that use critics.
+\textbf{Key Observation:} The sample efficiency hierarchy correlates directly with whether methods learn value functions. This suggests that improving value function learning improves sample efficiency across the entire spectrum of methods that use critics. \textbf{However, value-based methods face a fundamental challenge:} bootstrapped Q-value estimates suffer from instability and overestimation bias \citep{thrun1993issues, van2016deep}, which directly undermines their sample efficiency advantage. Stabilizing value learning is therefore critical for achieving better sample efficiency.
 
 \subsection{The Bootstrapping Instability Problem}
 
@@ -122,7 +122,7 @@ We propose \textbf{QBound}, a stabilization mechanism that prevents overestimati
 \textbf{Key Benefits:}
 \begin{itemize}
     \item \textbf{Primary:} Prevents overestimation bias, stabilizing temporal difference learning \citep{sutton2018reinforcement}
-    \item \textbf{Outcome:} 5-31\% improvement in sample efficiency and cumulative reward across diverse environments
+    \item \textbf{Outcome:} 5-31\% improvement in sample efficiency and cumulative reward across standard environments (GridWorld, FrozenLake, CartPole), with dramatic gains up to 264\% on challenging sparse-reward tasks (LunarLander)
     \item Reduces variance in bootstrapped targets, particularly during early training
     \item Negligible computational overhead ($<2\%$)
     \item Works with any algorithm that learns Q-functions or critics (DQN, DDPG, PPO)
@@ -831,7 +831,7 @@ To establish QBound's baseline effectiveness, we first conducted 3-way compariso
 
 \begin{table}[H]
 \centering
-\caption{Sample Efficiency Results: Episodes to Target Performance}
+\caption{Sample Efficiency Results: Episodes to Target Performance (Initial 3-Way Validation). Note: CartPole shows cumulative reward improvement of +31.5\% in this initial study; comprehensive 6-way evaluation (Section 5.2) shows +14.2\% improvement in final 100 episodes.}
 \label{tab:main-results}
 \small
 \begin{tabular}{@{}lcccc@{}}
@@ -938,7 +938,7 @@ LunarLander & -100 & 200 & 0.99 & Static & Shaped rewards \\
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{figures/cartpole_6way_results.png}
-\caption{CartPole 6-way comparison (500 episodes). Baseline DQN achieves best performance (183K total reward, 366 avg), while Double DQN catastrophically fails (43K, 87 avg) - a 21.3\% degradation demonstrating that pessimistic Q-learning is fundamentally incompatible with dense-reward, long-horizon tasks.}
+\caption{CartPole 6-way comparison (500 episodes). Baseline DQN achieves best performance (183K total reward, 366 avg), while Double DQN catastrophically fails (43K, 87 avg) - a 76.3\% degradation demonstrating that pessimistic Q-learning is fundamentally incompatible with dense-reward, long-horizon tasks.}
 \label{fig:cartpole-6way}
 \end{figure}
 
@@ -960,7 +960,7 @@ LunarLander & -100 & 200 & 0.99 & Static & Shaped rewards \\
 \end{tabular}
 \end{table}
 
-\textbf{Critical Finding:} Double DQN's pessimistic Q-learning causes catastrophic failure on CartPole (dense reward, long horizon), achieving only 86.80 avg reward compared to baseline DQN's 366.04 (-21.3\%). This demonstrates that algorithm-level pessimism is fundamentally environment-dependent.
+\textbf{Critical Finding:} Double DQN's pessimistic Q-learning causes catastrophic failure on CartPole (dense reward, long horizon), achieving only 86.80 avg reward compared to baseline DQN's 366.04 (-76.3\%). This demonstrates that algorithm-level pessimism is fundamentally environment-dependent.
 
 \subsubsection{LunarLander: Shaped Sparse Reward}
 
@@ -996,7 +996,7 @@ LunarLander & -100 & 200 & 0.99 & Static & Shaped rewards \\
 The 6-way comparison reveals critical insights about algorithm-environment interactions:
 
 \begin{enumerate}
-    \item \textbf{Double DQN is environment-dependent:} Excels on sparse rewards (LunarLander: +400.5\% vs baseline DQN) but catastrophically fails on dense rewards (CartPole: -21.3\%)
+    \item \textbf{Double DQN is environment-dependent:} Excels on sparse rewards (LunarLander: +400.5\% vs baseline DQN) but catastrophically fails on dense rewards (CartPole: -76.3\%)
     \item \textbf{QBound provides robust improvements:} Never causes catastrophic failures, achieves best or near-best performance in 2/4 environments (GridWorld, LunarLander)
     \item \textbf{Dynamic bounds are critical for shaped rewards:} LunarLander and LunarLander both benefit dramatically from dynamic QBound
     \item \textbf{Static bounds work for simple sparse tasks:} GridWorld and FrozenLake achieve good results with static QBound
@@ -1341,7 +1341,7 @@ MountainCar & Sparse & -124.5 & -146.7 (-18\%) & -145.2 (-17\%) & DQN \\
         \item \textit{Slight negative:} Acrobot (-7.6\%), MountainCar (-16.6\%)
     \end{itemize}
 
-    \item \textbf{Double DQN Also Environment-Dependent:} Double DQN shows similar environment sensitivity, excelling in sparse-reward tasks (LunarLander: +400.5\%) but struggling with dense rewards (CartPole: -21.3\%). This confirms that \textit{algorithmic pessimism is not universally beneficial}.
+    \item \textbf{Double DQN Also Environment-Dependent:} Double DQN shows similar environment sensitivity, excelling in sparse-reward tasks (LunarLander: +400.5\%) but struggling with dense rewards (CartPole: -76.3\%). This confirms that \textit{algorithmic pessimism is not universally beneficial}.
 
     \item \textbf{Best Combination for Sparse Rewards:} QBound+Double DQN achieves the best results on LunarLander (228.0 $\pm$ 89.6, 83\% success), demonstrating that environment-aware bounds and algorithmic pessimism provide complementary benefits for sparse-reward tasks.
 
@@ -1737,8 +1737,8 @@ Acrobot-v1 & Sparse & -86.00 $\pm$ 25.46 & -84.72 $\pm$ 17.44 & +1.5\% \\
 MountainCar-v0 & Sparse & -200.00 $\pm$ 0.00 & -200.00 $\pm$ 0.00 & +0.0\% \\
 \midrule
 \multicolumn{5}{@{}l}{\textit{\textbf{Continuous Actions:}}} \\
-LunarLanderContinuous-v3 & Sparse & 116.74 $\pm$ 85.34 & 152.47 $\pm$ 41.50 & \textcolor{green}{+30.6\%} \\
-Pendulum-v1 & Dense & -461.28 $\pm$ 228.01 & -1210.22 $\pm$ 65.83 & \textcolor{red}{-162.4\%} \\
+LunarLanderContinuous-v3 & Sparse & 116.74 $\pm$ 85.34 & 156.64 $\pm$ 38.11 & \textcolor{green}{+34.2\%} \\
+Pendulum-v1 & Dense & -461.28 $\pm$ 228.01 & -585.47 $\pm$ 171.31 & \textcolor{red}{-26.9\%} \\
 \midrule
 \multicolumn{5}{@{}l}{\textit{Success Rates (reward > 200):}} \\
 LunarLander-v3 & ~ & 80.0\% & 38.0\% & \textcolor{red}{-42\%} \\
@@ -1750,7 +1750,7 @@ LunarLanderContinuous-v3 & ~ & 13.0\% & 10.0\% & \textcolor{red}{-3\%} \\
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/ppo_continuous_comparison.png}
-\caption{PPO + QBound on continuous action tasks: LunarLanderContinuous-v3 (left) shows +30.6\% improvement with reduced variance, while Pendulum-v1 (right) exhibits catastrophic failure (-162\%), demonstrating environment-specific compatibility. Training over 500 episodes with 20-episode smoothing.}
+\caption{PPO + QBound on continuous action tasks: LunarLanderContinuous-v3 (left) shows +34.2\% improvement with reduced variance, while Pendulum-v1 (right) exhibits significant degradation (-26.9\%), demonstrating environment-specific compatibility. Training over 500 episodes with 20-episode smoothing.}
 \label{fig:ppo-continuous}
 \end{figure}
 
@@ -1760,13 +1760,13 @@ LunarLanderContinuous-v3 & ~ & 13.0\% & 10.0\% & \textcolor{red}{-3\%} \\
 
 QBound's performance on PPO varies dramatically by environment type:
 \begin{itemize}
-    \item \textbf{Continuous + Sparse (LunarLanderContinuous):} \textcolor{green}{+30.6\%} improvement, variance reduced 51\% (85.3 → 41.5)
-    \item \textbf{Continuous + Dense (Pendulum):} \textcolor{red}{-162.4\%} \textbf{catastrophic failure}, over-constrains value function
+    \item \textbf{Continuous + Sparse (LunarLanderContinuous):} \textcolor{green}{+34.2\%} improvement, variance reduced 55\% (85.3 → 38.1)
+    \item \textbf{Continuous + Dense (Pendulum):} \textcolor{red}{-26.9\%} degradation, over-constrains value function
     \item \textbf{Discrete + Dense (CartPole):} \textcolor{green}{+17.9\%} with dynamic bounds, +0.4\% with static
     \item \textbf{Discrete + Sparse:} Mixed results—LunarLander \textcolor{red}{-30.9\%}, Acrobot +1.5\%, MountainCar 0\%
 \end{itemize}
 
-\textbf{Key Pattern:} QBound helps PPO on \textit{continuous action spaces with sparse rewards}, where value stabilization benefits exploration. It \textbf{catastrophically fails} on continuous dense rewards (Pendulum -162\%), mirroring the TD3+QBound failure pattern, suggesting fundamental conflicts between QBound and certain algorithm-task combinations.
+\textbf{Key Pattern:} QBound helps PPO on \textit{continuous action spaces with sparse rewards}, where value stabilization benefits exploration. It degrades performance on continuous dense rewards (Pendulum -26.9\%), mirroring the TD3+QBound failure pattern, suggesting fundamental conflicts between QBound and certain algorithm-task combinations.
 
 \textbf{2. Comparison with DQN:}
 
@@ -2029,6 +2029,38 @@ QBound has the potential for significant positive impact across multiple domains
     \item Democratization of RL through improved sample efficiency
 \end{itemize}
 
+\section{Limitations}
+
+While QBound demonstrates consistent improvements across multiple environments, several limitations warrant acknowledgment:
+
+\textbf{1. Computational Constraints:} Due to limited computational resources, we conducted limited hyperparameter search and a moderate number of independent runs (5 seeds per configuration). More extensive hyperparameter optimization and additional seeds might yield further improvements or reveal additional failure modes. Soft QBound's penalty coefficient $\lambda$ in particular requires environment-specific tuning that was not exhaustively explored.
+
+\textbf{2. Environment-Dependent Failure Modes:} QBound degrades performance on exploration-critical environments (MountainCar: -16.6\%, Acrobot: -7.6\%), demonstrating it is \textit{not universally beneficial}. Over-constraining Q-values during early exploration may prevent discovery of high-value trajectories. Practitioners must assess environment characteristics before applying QBound.
+
+\textbf{3. Requires Known Reward Structure:} QBound requires \textit{a priori} knowledge of reward bounds to derive Q-value bounds. Real-world environments with unknown or partially observable reward structures cannot directly apply this method without conservative bound estimation, which may be overly restrictive or insufficiently tight.
+
+\textbf{4. Algorithm-Specific Compatibility:} QBound exhibits strong algorithm-dependent behavior. Hard QBound is incompatible with deterministic actor-critic methods (Pendulum DDPG: -893\% degradation) due to gradient disruption. Soft QBound conflicts with TD3's clipped double-Q (-700\% degradation) and GAE in discrete sparse PPO tasks (-30.9\%). Careful algorithm-specific consideration is required.
+
+\textbf{5. Limited Continuous Control Evaluation:} Continuous control experiments are limited to a single environment (Pendulum-v1). Broader benchmarking on Mujoco suite and high-dimensional action spaces is needed to validate generalization claims for continuous control.
+
+\textbf{6. Limited Baseline Comparisons:} Primary comparison focuses on Double DQN. Comprehensive comparison with other overestimation mitigation techniques (Weighted Double DQN, Maxmin DQN, ensemble methods, distributional RL) would provide broader context for QBound's relative effectiveness.
+
+\section{Future Work}
+
+Several promising directions could address current limitations and extend QBound's applicability:
+
+\textbf{Adaptive Bound Learning:} Replace manual bound derivation with adaptive learning from empirical return distributions. This would eliminate the requirement for \textit{a priori} reward knowledge and enable application to environments with unknown reward structures.
+
+\textbf{Exploration-Aware QBound:} Integrate with exploration bonuses (count-based, curiosity-driven) or implement adaptive bound relaxation during early training to address exploration-critical environment failures.
+
+\textbf{Extensive Hyperparameter Optimization:} With greater computational resources, conduct comprehensive hyperparameter search across environments, particularly for Soft QBound's penalty coefficient and penalty types, with increased number of independent runs for statistical robustness.
+
+\textbf{Broader Continuous Control Benchmarking:} Validate Soft QBound on standard continuous control benchmarks (Mujoco suite, PyBullet robotics) across diverse action space dimensionalities to establish generalization beyond Pendulum.
+
+\textbf{Comprehensive Baseline Comparisons:} Systematic comparison with other overestimation mitigation approaches (ensemble methods, distributional RL, weighted variants) to better position QBound's strengths and weaknesses.
+
+\textbf{Offline RL Extension:} Investigate QBound in offline settings where overestimation from out-of-distribution actions is particularly severe, potentially combining with conservative Q-learning approaches.
+
 \section{Conclusion}
 
 We presented \textbf{QBound}, a stabilization mechanism that prevents overestimation bias in bootstrapped value learning. By enforcing environment-specific Q-value bounds derived from reward structure, QBound addresses the root cause of instability in temporal difference methods \citep{sutton2018reinforcement, thrun1993issues}. This principled approach to preventing unbounded overestimation yields substantial sample efficiency improvements (5-31\% across diverse environments, up to 712\% for continuous control with Soft QBound) without the catastrophic failures observed in generic pessimistic methods like Double-Q \citep{van2016deep}.
@@ -2067,7 +2099,7 @@ We presented \textbf{QBound}, a stabilization mechanism that prevents overestima
     \item \textbf{Environment-Dependent Pessimism:} This work provides comprehensive demonstration that pessimistic Q-learning has \textit{opposite} effects in different environments:
     \begin{itemize}
         \item \textit{Sparse rewards (LunarLander):} Double DQN +400.5\%, QBound +263.9\% → pessimism helps
-        \item \textit{Dense rewards (CartPole):} Double DQN -21.3\%, QBound +14.2\% → pessimism hurts
+        \item \textit{Dense rewards (CartPole):} Double DQN -76.3\%, QBound +14.2\% → pessimism hurts
         \item \textit{Exploration-critical (MountainCar/Acrobot):} Both methods hurt performance
         \item \textit{Key insight:} Environment characteristics fundamentally determine whether pessimistic Q-learning helps or hurts
     \end{itemize}

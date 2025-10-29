@@ -5,7 +5,14 @@ Implementation of DDPG for continuous control environments.
 Based on Lillicrap et al. (2015) "Continuous Control with Deep Reinforcement Learning"
 
 This implementation will be used to compare against QBound on continuous control tasks.
+
+QBound Support:
+- Hard QBound: use_qbound=True, use_soft_qbound=False (default, zero gradients)
+- Soft QBound: use_qbound=True, use_soft_qbound=True (preserves gradients!)
 """
+
+import sys
+sys.path.insert(0, '/root/projects/QBound/src')
 
 import numpy as np
 import torch
@@ -14,6 +21,12 @@ import torch.nn.functional as F
 import torch.optim as optim
 from collections import deque
 import random
+
+try:
+    from soft_qbound_penalty import SoftQBoundPenalty
+    SOFT_QBOUND_AVAILABLE = True
+except ImportError:
+    SOFT_QBOUND_AVAILABLE = False
 
 
 class ReplayBuffer:
@@ -136,6 +149,10 @@ class DDPGAgent:
         use_qbound=False,
         qbound_min=None,
         qbound_max=None,
+        use_soft_qbound=False,
+        qbound_penalty_weight=0.1,
+        qbound_penalty_type='quadratic',
+        soft_clip_beta=0.1,
         device='cpu'
     ):
         self.device = device
@@ -143,8 +160,20 @@ class DDPGAgent:
         self.tau = tau
         self.max_action = max_action
         self.use_qbound = use_qbound
-        self.qbound_min = qbound_min
-        self.qbound_max = qbound_max
+        self.qbound_min = qbound_min if qbound_min is not None else -np.inf
+        self.qbound_max = qbound_max if qbound_max is not None else np.inf
+        self.use_soft_qbound = use_soft_qbound and SOFT_QBOUND_AVAILABLE
+        self.qbound_penalty_weight = qbound_penalty_weight
+        self.qbound_penalty_type = qbound_penalty_type
+        self.soft_clip_beta = soft_clip_beta
+
+        # Initialize soft QBound penalty function if needed
+        if self.use_soft_qbound:
+            self.penalty_fn = SoftQBoundPenalty()
+            self.recent_penalties = []
+        else:
+            self.penalty_fn = None
+            self.recent_penalties = None
 
         # Actor networks
         self.actor = Actor(state_dim, action_dim, max_action).to(device)
@@ -198,20 +227,47 @@ class DDPGAgent:
             target_q = self.critic_target(next_states, next_actions)
 
             # Apply QBound if enabled
-            if self.use_qbound and self.qbound_min is not None and self.qbound_max is not None:
-                target_q = torch.clamp(target_q, self.qbound_min, self.qbound_max)
+            if self.use_qbound:
+                if self.use_soft_qbound:
+                    # SOFT QBOUND: Smooth clipping preserves gradients
+                    target_q = self.penalty_fn.softplus_clip(
+                        target_q,
+                        torch.tensor(self.qbound_min, device=self.device),
+                        torch.tensor(self.qbound_max, device=self.device),
+                        beta=self.soft_clip_beta
+                    )
+                else:
+                    # HARD QBOUND: Standard clipping (zero gradients)
+                    target_q = torch.clamp(target_q, self.qbound_min, self.qbound_max)
 
             target_q = rewards + (1 - dones) * self.gamma * target_q
-
-            # Safety clip targets if using QBound
-            if self.use_qbound and self.qbound_min is not None and self.qbound_max is not None:
-                target_q = torch.clamp(target_q, self.qbound_min, self.qbound_max)
 
         # Current Q-value
         current_q = self.critic(states, actions)
 
         # Critic loss
         critic_loss = F.mse_loss(current_q, target_q)
+
+        # Add soft QBound penalty if enabled
+        qbound_penalty = torch.tensor(0.0, device=self.device)
+        if self.use_qbound and self.use_soft_qbound:
+            q_min = torch.tensor(self.qbound_min, device=self.device)
+            q_max = torch.tensor(self.qbound_max, device=self.device)
+
+            if self.qbound_penalty_type == 'quadratic':
+                qbound_penalty = self.penalty_fn.quadratic_penalty(current_q, q_min, q_max)
+            elif self.qbound_penalty_type == 'huber':
+                qbound_penalty = self.penalty_fn.huber_penalty(current_q, q_min, q_max, delta=10.0)
+            elif self.qbound_penalty_type == 'exponential':
+                qbound_penalty = self.penalty_fn.exponential_penalty(current_q, q_min, q_max, alpha=0.1)
+
+            critic_loss = critic_loss + self.qbound_penalty_weight * qbound_penalty
+
+            # Track penalty
+            if self.recent_penalties is not None:
+                self.recent_penalties.append(qbound_penalty.item())
+                if len(self.recent_penalties) > 100:
+                    self.recent_penalties.pop(0)
 
         # Update critic
         self.critic_optimizer.zero_grad()
@@ -231,7 +287,11 @@ class DDPGAgent:
         self._soft_update(self.actor, self.actor_target)
         self._soft_update(self.critic, self.critic_target)
 
-        return critic_loss.item(), actor_loss.item()
+        # Return penalty info if using soft QBound
+        if self.use_soft_qbound:
+            return critic_loss.item(), actor_loss.item(), qbound_penalty.item()
+        else:
+            return critic_loss.item(), actor_loss.item()
 
     def _soft_update(self, source, target):
         """Soft update of target network parameters"""

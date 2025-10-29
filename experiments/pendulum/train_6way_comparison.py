@@ -144,7 +144,11 @@ def train_agent(env, agent, agent_name, max_episodes=MAX_EPISODES):
 
             # Train if enough samples
             if episode >= WARMUP_EPISODES:
-                critic_loss, actor_loss = agent.train(batch_size=BATCH_SIZE)
+                train_result = agent.train(batch_size=BATCH_SIZE)
+                if train_result is not None:
+                    # Handle 2 or 3 return values (soft QBound returns penalty as 3rd value)
+                    critic_loss = train_result[0]
+                    actor_loss = train_result[1]
 
             episode_reward += reward
             state = next_state
@@ -316,6 +320,10 @@ def main():
             use_qbound=True,
             qbound_min=QBOUND_MIN,
             qbound_max=QBOUND_MAX,
+            use_soft_qbound=True,  # Enable soft QBound for gradient flow
+            qbound_penalty_weight=0.1,
+            qbound_penalty_type='quadratic',
+            soft_clip_beta=0.1,
             device='cpu'
         )
 
@@ -348,6 +356,10 @@ def main():
             use_qbound=True,
             qbound_min=QBOUND_MIN,
             qbound_max=QBOUND_MAX,
+            use_soft_qbound=True,  # Enable soft QBound for gradient flow
+            qbound_penalty_weight=0.1,
+            qbound_penalty_type='quadratic',
+            soft_clip_beta=0.1,
             device='cpu'
         )
 
@@ -380,6 +392,10 @@ def main():
             use_qbound=True,
             qbound_min=QBOUND_MIN,
             qbound_max=QBOUND_MAX,
+            use_soft_qbound=True,  # Enable soft QBound for gradient flow
+            qbound_penalty_weight=0.1,
+            qbound_penalty_type='quadratic',
+            soft_clip_beta=0.1,
             device='cpu'
         )
 

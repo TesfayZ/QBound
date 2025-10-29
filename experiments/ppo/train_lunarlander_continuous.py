@@ -90,6 +90,10 @@ def train_agent(agent_type, num_episodes=500, trajectory_length=2048):
             V_min=-100.0,
             V_max=200.0,
             use_step_aware_bounds=False,
+            use_soft_qbound=True,  # Enable soft QBound for gradient flow
+            qbound_penalty_weight=0.1,
+            qbound_penalty_type='quadratic',
+            soft_clip_beta=0.1,
             hidden_sizes=[128, 128],
             lr_actor=3e-4,
             lr_critic=1e-3,
