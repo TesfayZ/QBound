@@ -13,8 +13,8 @@ This is compared against QBound to test if simple environment-aware bounds
 can replace TD3's complex stabilization mechanisms.
 
 QBound Support:
-- Hard QBound: use_qbound=True, use_soft_qbound=False (default, zero gradients)
-- Soft QBound: use_qbound=True, use_soft_qbound=True (preserves gradients!)
+- Hard clipping on TD targets (prevents bootstrapping errors)
+- Soft clipping on actor Q-values (preserves gradients for policy improvement)
 """
 
 import sys
@@ -36,26 +36,37 @@ except ImportError:
 
 
 class ReplayBuffer:
-    """Experience replay buffer"""
+    """Experience replay buffer with time step tracking for dynamic QBound"""
 
     def __init__(self, capacity=100000):
         self.buffer = deque(maxlen=capacity)
 
-    def push(self, state, action, reward, next_state, done):
-        """Add a transition to the buffer"""
-        self.buffer.append((state, action, reward, next_state, done))
+    def push(self, state, action, reward, next_state, done, time_step=None):
+        """
+        Add a transition to the buffer
+
+        Args:
+            state: Current state
+            action: Action taken
+            reward: Reward received
+            next_state: Next state
+            done: Whether episode ended
+            time_step: Time step within episode (for dynamic QBound)
+        """
+        self.buffer.append((state, action, reward, next_state, done, time_step))
 
     def sample(self, batch_size):
-        """Sample a batch of transitions"""
+        """Sample a batch of transitions with time steps"""
         batch = random.sample(self.buffer, batch_size)
-        states, actions, rewards, next_states, dones = zip(*batch)
+        states, actions, rewards, next_states, dones, time_steps = zip(*batch)
 
         return (
             np.array(states),
             np.array(actions),
             np.array(rewards, dtype=np.float32),
             np.array(next_states),
-            np.array(dones, dtype=np.float32)
+            np.array(dones, dtype=np.float32),
+            np.array(time_steps, dtype=np.int32) if time_steps[0] is not None else None
         )
 
     def __len__(self):
@@ -147,9 +158,11 @@ class TD3Agent:
         policy_noise: Noise added to target actions
         noise_clip: Maximum absolute value of target noise
         policy_freq: Frequency of delayed policy updates
-        use_qbound: Whether to apply QBound to critics
+        use_qbound: Whether to apply QBound (hard clipping on TD targets)
         qbound_min: Minimum Q-value bound (if using QBound)
         qbound_max: Maximum Q-value bound (if using QBound)
+        use_soft_clip: Whether to apply soft clipping on actor Q-values
+        soft_clip_beta: Steepness parameter for soft clipping (higher = closer to hard clip)
     """
 
     def __init__(
@@ -167,10 +180,11 @@ class TD3Agent:
         use_qbound=False,
         qbound_min=None,
         qbound_max=None,
-        use_soft_qbound=False,
-        qbound_penalty_weight=0.1,
-        qbound_penalty_type='quadratic',
+        use_soft_clip=False,
         soft_clip_beta=0.1,
+        use_step_aware_qbound=False,
+        max_episode_steps=None,
+        step_reward=None,
         device='cpu'
     ):
         self.device = device
@@ -184,18 +198,19 @@ class TD3Agent:
         self.use_qbound = use_qbound
         self.qbound_min = qbound_min if qbound_min is not None else -np.inf
         self.qbound_max = qbound_max if qbound_max is not None else np.inf
-        self.use_soft_qbound = use_soft_qbound and SOFT_QBOUND_AVAILABLE
-        self.qbound_penalty_weight = qbound_penalty_weight
-        self.qbound_penalty_type = qbound_penalty_type
+        self.use_soft_clip = use_soft_clip
         self.soft_clip_beta = soft_clip_beta
 
-        # Initialize soft QBound penalty function if needed
-        if self.use_soft_qbound:
+        # Step-aware QBound parameters (for time-step dependent rewards)
+        self.use_step_aware_qbound = use_step_aware_qbound
+        self.max_episode_steps = max_episode_steps
+        self.step_reward = step_reward
+
+        # Initialize soft clipping function if needed
+        if self.use_soft_clip and SOFT_QBOUND_AVAILABLE:
             self.penalty_fn = SoftQBoundPenalty()
-            self.recent_penalties = []
         else:
             self.penalty_fn = None
-            self.recent_penalties = None
 
         # Actor networks
         self.actor = Actor(state_dim, action_dim, max_action).to(device)
@@ -221,6 +236,43 @@ class TD3Agent:
         # Exploration noise
         self.noise = OUNoise(action_dim)
 
+    def compute_qbound(self, current_step=None):
+        """
+        Compute Q-value bounds.
+
+        Static bounds (sparse rewards):
+            Q_min, Q_max = known reward bounds with discount
+
+        Dynamic bounds (dense rewards):
+            Q_max(t) = sum_{k=0}^{H-t-1} γ^k * r
+            For Pendulum: Q_max(t) = r * (1 - γ^(H-t)) / (1 - γ)
+            where H = max_episode_steps, t = current_step, r = step_reward
+        """
+        if self.use_step_aware_qbound and current_step is not None:
+            # Dynamic bound for dense reward survival tasks
+            remaining_steps = self.max_episode_steps - current_step
+            if remaining_steps > 0:
+                # Geometric series for discounted sum of future rewards
+                if abs(self.gamma - 1.0) < 1e-6:
+                    # γ ≈ 1: undiscounted case
+                    bound_dynamic = self.step_reward * remaining_steps
+                else:
+                    # Standard geometric series
+                    bound_dynamic = self.step_reward * (1 - self.gamma ** remaining_steps) / (1 - self.gamma)
+
+                # For positive rewards: Q ∈ [0, Q_max(t)] where Q_max(t) decreases
+                # For negative rewards: Q ∈ [Q_min(t), 0] where Q_min(t) increases (becomes less negative)
+                if self.step_reward >= 0:
+                    return 0.0, bound_dynamic  # Positive: Q_max decreases, Q_min stays at 0
+                else:
+                    return bound_dynamic, 0.0  # Negative: Q_min becomes less negative, Q_max stays at 0
+            else:
+                # No remaining steps
+                return self.qbound_min, 0.0
+        else:
+            # Static bounds for sparse reward tasks
+            return self.qbound_min, self.qbound_max
+
     def select_action(self, state, add_noise=True):
         """Select action using actor network with optional exploration noise"""
         state = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -234,15 +286,21 @@ class TD3Agent:
 
         return action
 
-    def train(self, batch_size=256):
-        """Train the agent on a batch from replay buffer"""
+    def train(self, batch_size=256, current_step=None):
+        """
+        Train the agent on a batch from replay buffer
+
+        Args:
+            batch_size: Number of transitions to sample
+            current_step: Current time step (DEPRECATED - now uses per-transition steps from buffer)
+        """
         if len(self.replay_buffer) < batch_size:
-            return None, None
+            return None, None, None
 
         self.total_it += 1
 
-        # Sample batch
-        states, actions, rewards, next_states, dones = self.replay_buffer.sample(batch_size)
+        # Sample batch WITH TIME STEPS
+        states, actions, rewards, next_states, dones, time_steps = self.replay_buffer.sample(batch_size)
 
         states = torch.FloatTensor(states).to(self.device)
         actions = torch.FloatTensor(actions).to(self.device)
@@ -251,91 +309,80 @@ class TD3Agent:
         dones = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
 
         # ===== Critic Update =====
+        violation_stats = None
+
+        # Compute bounds per-transition (FIXED: was using single current_step for whole batch)
+        if self.use_step_aware_qbound and time_steps is not None:
+            # Compute bounds for EACH transition based on its time step
+            qbound_mins = []
+            qbound_maxs = []
+            for t in time_steps:
+                q_min, q_max = self.compute_qbound(current_step=t)
+                qbound_mins.append(q_min)
+                qbound_maxs.append(q_max)
+
+            qbound_mins = torch.tensor(qbound_mins, device=self.device, dtype=torch.float32).unsqueeze(1)
+            qbound_maxs = torch.tensor(qbound_maxs, device=self.device, dtype=torch.float32).unsqueeze(1)
+        else:
+            # Static bounds (same for all transitions)
+            qbound_min, qbound_max = self.compute_qbound(None)
+            qbound_mins = torch.full((batch_size, 1), qbound_min, device=self.device, dtype=torch.float32)
+            qbound_maxs = torch.full((batch_size, 1), qbound_max, device=self.device, dtype=torch.float32)
+
         with torch.no_grad():
             # Target policy smoothing: Add noise to target actions
             noise = torch.randn_like(actions) * self.policy_noise
-
-            # Apply noise clipping (soft or hard)
-            if self.use_soft_qbound:
-                noise = self.penalty_fn.softplus_clip(
-                    noise,
-                    -torch.tensor(self.noise_clip, device=self.device),
-                    torch.tensor(self.noise_clip, device=self.device),
-                    beta=self.soft_clip_beta
-                )
-            else:
-                noise = noise.clamp(-self.noise_clip, self.noise_clip)
+            noise = noise.clamp(-self.noise_clip, self.noise_clip)  # Always hard clip noise
 
             next_actions = self.actor_target(next_states) + noise
-
-            # Apply action clipping (soft or hard)
-            if self.use_soft_qbound:
-                next_actions = self.penalty_fn.softplus_clip(
-                    next_actions,
-                    -torch.tensor(self.max_action, device=self.device),
-                    torch.tensor(self.max_action, device=self.device),
-                    beta=self.soft_clip_beta
-                )
-            else:
-                next_actions = next_actions.clamp(-self.max_action, self.max_action)
+            next_actions = next_actions.clamp(-self.max_action, self.max_action)  # Hard clip actions
 
             # Clipped Double-Q: Compute Q-values from both critics, take minimum
-            target_q1 = self.critic_1_target(next_states, next_actions)
-            target_q2 = self.critic_2_target(next_states, next_actions)
-            target_q = torch.min(target_q1, target_q2)
+            next_q1_raw = self.critic_1_target(next_states, next_actions)
+            next_q2_raw = self.critic_2_target(next_states, next_actions)
+            next_q_raw = torch.min(next_q1_raw, next_q2_raw)
 
-            # Apply QBound if enabled
+            # Two-stage hard clipping (like DQN) with PER-TRANSITION bounds
             if self.use_qbound:
-                if self.use_soft_qbound:
-                    # SOFT QBOUND: Smooth clipping preserves gradients
-                    target_q = self.penalty_fn.softplus_clip(
-                        target_q,
-                        torch.tensor(self.qbound_min, device=self.device),
-                        torch.tensor(self.qbound_max, device=self.device),
-                        beta=self.soft_clip_beta
-                    )
-                else:
-                    # HARD QBOUND: Standard clipping (zero gradients)
-                    target_q = torch.clamp(target_q, self.qbound_min, self.qbound_max)
+                # STAGE 1: Clip next-state Q-values with per-transition bounds
+                next_q_clipped = torch.clamp(next_q_raw, qbound_mins, qbound_maxs)
 
-            target_q = rewards + (1 - dones) * self.gamma * target_q
+                # Compute TD target
+                target_q_raw = rewards + (1 - dones) * self.gamma * next_q_clipped
+
+                # STAGE 2: Clip final TD target after adding reward
+                target_q = torch.clamp(target_q_raw, qbound_mins, qbound_maxs)
+
+                # Track violations in TD error (for analysis)
+                next_q_violate_max = (next_q_raw > qbound_maxs).float()
+                next_q_violate_min = (next_q_raw < qbound_mins).float()
+                target_violate_max = (target_q_raw > qbound_maxs).float()
+                target_violate_min = (target_q_raw < qbound_mins).float()
+
+                violation_stats = {
+                    'next_q_violate_max_rate': next_q_violate_max.mean().item(),
+                    'next_q_violate_min_rate': next_q_violate_min.mean().item(),
+                    'target_violate_max_rate': target_violate_max.mean().item(),
+                    'target_violate_min_rate': target_violate_min.mean().item(),
+                    'total_violation_rate': ((next_q_violate_max + next_q_violate_min +
+                                             target_violate_max + target_violate_min) > 0).float().mean().item(),
+                    'violation_magnitude_max_next': torch.relu(next_q_raw - qbound_maxs).mean().item(),
+                    'violation_magnitude_min_next': torch.relu(qbound_mins - next_q_raw).mean().item(),
+                    'violation_magnitude_max_target': torch.relu(target_q_raw - qbound_maxs).mean().item(),
+                    'violation_magnitude_min_target': torch.relu(qbound_mins - target_q_raw).mean().item(),
+                    'qbound_max': qbound_maxs.mean().item(),  # Average for logging
+                    'qbound_min': qbound_mins.mean().item(),  # Average for logging
+                }
+            else:
+                target_q = rewards + (1 - dones) * self.gamma * next_q_raw
 
         # Current Q-values from both critics
         current_q1 = self.critic_1(states, actions)
         current_q2 = self.critic_2(states, actions)
 
-        # Critic losses
+        # Critic losses - NO PENALTY! Bootstrapping handles bounds
         critic_1_loss = F.mse_loss(current_q1, target_q)
         critic_2_loss = F.mse_loss(current_q2, target_q)
-
-        # Add soft QBound penalty if enabled
-        qbound_penalty = torch.tensor(0.0, device=self.device)
-        if self.use_qbound and self.use_soft_qbound:
-            q_min = torch.tensor(self.qbound_min, device=self.device)
-            q_max = torch.tensor(self.qbound_max, device=self.device)
-
-            # Penalize both critics
-            if self.qbound_penalty_type == 'quadratic':
-                penalty_1 = self.penalty_fn.quadratic_penalty(current_q1, q_min, q_max)
-                penalty_2 = self.penalty_fn.quadratic_penalty(current_q2, q_min, q_max)
-            elif self.qbound_penalty_type == 'huber':
-                penalty_1 = self.penalty_fn.huber_penalty(current_q1, q_min, q_max, delta=10.0)
-                penalty_2 = self.penalty_fn.huber_penalty(current_q2, q_min, q_max, delta=10.0)
-            elif self.qbound_penalty_type == 'exponential':
-                penalty_1 = self.penalty_fn.exponential_penalty(current_q1, q_min, q_max, alpha=0.1)
-                penalty_2 = self.penalty_fn.exponential_penalty(current_q2, q_min, q_max, alpha=0.1)
-            else:
-                penalty_1 = penalty_2 = torch.tensor(0.0, device=self.device)
-
-            qbound_penalty = (penalty_1 + penalty_2) / 2
-            critic_1_loss = critic_1_loss + self.qbound_penalty_weight * penalty_1
-            critic_2_loss = critic_2_loss + self.qbound_penalty_weight * penalty_2
-
-            # Track penalty
-            if self.recent_penalties is not None:
-                self.recent_penalties.append(qbound_penalty.item())
-                if len(self.recent_penalties) > 100:
-                    self.recent_penalties.pop(0)
 
         # Update critic 1
         self.critic_1_optimizer.zero_grad()
@@ -351,8 +398,21 @@ class TD3Agent:
 
         # ===== Delayed Actor Update =====
         if self.total_it % self.policy_freq == 0:
-            # Maximize Q1(s, μ(s))
-            actor_loss = -self.critic_1(states, self.actor(states)).mean()
+            # Compute Q-values for actor's actions
+            q_for_actor = self.critic_1(states, self.actor(states))
+
+            # Apply soft clipping to preserve gradients during policy improvement
+            if self.use_qbound and self.use_soft_clip:
+                # Use per-transition bounds for soft clipping too
+                q_for_actor = self.penalty_fn.softplus_clip(
+                    q_for_actor,
+                    qbound_mins,
+                    qbound_maxs,
+                    beta=self.soft_clip_beta
+                )
+
+            # Maximize Q(s, μ(s))
+            actor_loss = -q_for_actor.mean()
 
             # Update actor
             self.actor_optimizer.zero_grad()
@@ -368,11 +428,8 @@ class TD3Agent:
 
         critic_loss = (critic_1_loss.item() + critic_2_loss.item()) / 2
 
-        # Return penalty info if using soft QBound
-        if self.use_soft_qbound:
-            return critic_loss, actor_loss, qbound_penalty.item()
-        else:
-            return critic_loss, actor_loss
+        # Return violation stats
+        return critic_loss, actor_loss, violation_stats
 
     def _soft_update(self, source, target):
         """Soft update of target network parameters"""
