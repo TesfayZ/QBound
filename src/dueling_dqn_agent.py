@@ -160,6 +160,9 @@ class DuelingDQNAgent:
         self.steps = 0
         self.losses = []
 
+        # Violation tracking for QBound analysis
+        self.violation_stats_history = []
+
     def select_action(self, state: np.ndarray, eval_mode: bool = False) -> int:
         """Select action using epsilon-greedy policy."""
         if not eval_mode and random.random() < self.epsilon:
@@ -174,16 +177,20 @@ class DuelingDQNAgent:
         """Store transition in replay buffer."""
         self.replay_buffer.push(state, action, reward, next_state, done, current_step)
 
-    def train_step(self) -> float:
+    def train_step(self):
         """
         Perform one training step with optional QBound and Double DQN.
 
         Dueling DQN: Q(s,a) = V(s) + (A(s,a) - mean_a A(s,a))
         Double DQN: Uses online network for action selection, target for evaluation
         QBound: Clips next-state Q-values during bootstrapping
+
+        Returns:
+            loss (float): TD loss value
+            violation_stats (dict or None): QBound violation statistics if use_qclip=True
         """
         if len(self.replay_buffer) < self.batch_size:
-            return 0.0
+            return 0.0, None
 
         # Sample batch
         batch = self.replay_buffer.sample(self.batch_size)
@@ -198,16 +205,19 @@ class DuelingDQNAgent:
         # Compute current Q-values (from online network)
         current_q_values = self.q_network(states).gather(1, actions.unsqueeze(1)).squeeze(1)
 
+        # Initialize violation tracking
+        violation_stats = None
+
         # Compute next-state Q-values
         with torch.no_grad():
             if self.use_double_dqn:
                 # Double DQN: action selection from online network
                 next_actions = self.q_network(next_states).argmax(1)
                 # Q-value evaluation from target network
-                next_q_values = self.target_network(next_states).gather(1, next_actions.unsqueeze(1)).squeeze(1)
+                next_q_values_raw = self.target_network(next_states).gather(1, next_actions.unsqueeze(1)).squeeze(1)
             else:
                 # Standard DQN: max Q-value from target network
-                next_q_values = self.target_network(next_states).max(1)[0]
+                next_q_values_raw = self.target_network(next_states).max(1)[0]
 
             # QBound: Clip next-state Q-values to environment-aware bounds
             if self.use_qclip:
@@ -215,44 +225,79 @@ class DuelingDQNAgent:
                     # Dynamic step-aware bounds
                     current_steps_tensor = torch.FloatTensor([s if s is not None else 0 for s in current_steps]).to(self.device)
                     remaining_steps_next = torch.clamp(self.max_episode_steps - current_steps_tensor - 1, min=0)
+                    remaining_steps_current = torch.clamp(self.max_episode_steps - current_steps_tensor, min=0)
 
                     # Geometric sum formula: (1 - γ^H) / (1 - γ)
                     geometric_sum_next = (1 - torch.pow(self.gamma, remaining_steps_next)) / (1 - self.gamma)
+                    geometric_sum_current = (1 - torch.pow(self.gamma, remaining_steps_current)) / (1 - self.gamma)
 
                     if self.reward_is_negative:
                         # Negative rewards: Q ∈ [Q_min(t), 0]
-                        dynamic_qmin_next = -geometric_sum_next * self.step_reward
+                        # step_reward is already negative (e.g., -16.27), geometric_sum is positive
+                        # Q_min(t) = step_reward * geometric_sum = (-16.27) * 86.60 = -1409.33 ✓
+                        dynamic_qmin_next = geometric_sum_next * self.step_reward
                         dynamic_qmax_next = torch.zeros_like(dynamic_qmin_next)
+                        dynamic_qmin_current = geometric_sum_current * self.step_reward
+                        dynamic_qmax_current = torch.zeros_like(dynamic_qmin_current)
                     else:
                         # Positive rewards: Q ∈ [0, Q_max(t)]
                         dynamic_qmin_next = torch.zeros_like(geometric_sum_next)
                         dynamic_qmax_next = geometric_sum_next * self.step_reward
-
-                    next_q_values = torch.clamp(next_q_values, dynamic_qmin_next, dynamic_qmax_next)
+                        dynamic_qmin_current = torch.zeros_like(geometric_sum_current)
+                        dynamic_qmax_current = geometric_sum_current * self.step_reward
                 else:
                     # Static bounds
-                    next_q_values = torch.clamp(next_q_values, self.qclip_min, self.qclip_max)
+                    dynamic_qmin_next = torch.full_like(next_q_values_raw, self.qclip_min)
+                    dynamic_qmax_next = torch.full_like(next_q_values_raw, self.qclip_max)
+                    dynamic_qmin_current = torch.full_like(next_q_values_raw, self.qclip_min)
+                    dynamic_qmax_current = torch.full_like(next_q_values_raw, self.qclip_max)
 
-            # Compute Bellman targets
-            targets = rewards + self.gamma * next_q_values * (1 - dones)
+                # Track violations BEFORE clipping (for analysis)
+                next_q_violate_max = (next_q_values_raw > dynamic_qmax_next).float()
+                next_q_violate_min = (next_q_values_raw < dynamic_qmin_next).float()
+
+                violation_magnitude_max_next = torch.relu(next_q_values_raw - dynamic_qmax_next)
+                violation_magnitude_min_next = torch.relu(dynamic_qmin_next - next_q_values_raw)
+
+                # Clip next-state Q-values
+                next_q_values = torch.clamp(next_q_values_raw, dynamic_qmin_next, dynamic_qmax_next)
+            else:
+                next_q_values = next_q_values_raw
+
+            # Compute Bellman targets (before final clipping)
+            targets_raw = rewards + self.gamma * next_q_values * (1 - dones)
 
             # QBound: Clip final targets for safety
             if self.use_qclip:
-                if self.use_step_aware_qbound and current_steps[0] is not None:
-                    current_steps_tensor = torch.FloatTensor([s if s is not None else 0 for s in current_steps]).to(self.device)
-                    remaining_steps_current = torch.clamp(self.max_episode_steps - current_steps_tensor, min=0)
-                    geometric_sum_current = (1 - torch.pow(self.gamma, remaining_steps_current)) / (1 - self.gamma)
+                # Track violations in TD targets BEFORE final clipping
+                target_violate_max = (targets_raw > dynamic_qmax_current).float()
+                target_violate_min = (targets_raw < dynamic_qmin_current).float()
 
-                    if self.reward_is_negative:
-                        dynamic_qmin_current = -geometric_sum_current * self.step_reward
-                        dynamic_qmax_current = torch.zeros_like(dynamic_qmin_current)
-                    else:
-                        dynamic_qmin_current = torch.zeros_like(geometric_sum_current)
-                        dynamic_qmax_current = geometric_sum_current * self.step_reward
+                violation_magnitude_max_target = torch.relu(targets_raw - dynamic_qmax_current)
+                violation_magnitude_min_target = torch.relu(dynamic_qmin_current - targets_raw)
 
-                    targets = torch.clamp(targets, dynamic_qmin_current, dynamic_qmax_current)
-                else:
-                    targets = torch.clamp(targets, self.qclip_min, self.qclip_max)
+                # Clip final targets
+                targets = torch.clamp(targets_raw, dynamic_qmin_current, dynamic_qmax_current)
+
+                # Compute violation statistics
+                violation_stats = {
+                    'next_q_violate_max_rate': next_q_violate_max.mean().item(),
+                    'next_q_violate_min_rate': next_q_violate_min.mean().item(),
+                    'target_violate_max_rate': target_violate_max.mean().item(),
+                    'target_violate_min_rate': target_violate_min.mean().item(),
+                    'total_violation_rate': ((next_q_violate_max + next_q_violate_min +
+                                             target_violate_max + target_violate_min) > 0).float().mean().item(),
+                    'violation_magnitude_max_next': violation_magnitude_max_next.mean().item(),
+                    'violation_magnitude_min_next': violation_magnitude_min_next.mean().item(),
+                    'violation_magnitude_max_target': violation_magnitude_max_target.mean().item(),
+                    'violation_magnitude_min_target': violation_magnitude_min_target.mean().item(),
+                    'qbound_max': dynamic_qmax_current.mean().item(),
+                    'qbound_min': dynamic_qmin_current.mean().item(),
+                }
+
+                self.violation_stats_history.append(violation_stats)
+            else:
+                targets = targets_raw
 
         # Standard TD loss
         loss = nn.MSELoss()(current_q_values, targets)
@@ -271,7 +316,7 @@ class DuelingDQNAgent:
         self.epsilon = max(self.epsilon_end, self.epsilon * self.epsilon_decay)
 
         self.losses.append(loss.item())
-        return loss.item()
+        return loss.item(), violation_stats
 
     def save(self, path: str):
         """Save agent checkpoint."""

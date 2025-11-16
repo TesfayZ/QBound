@@ -23,12 +23,17 @@ import gymnasium as gym
 import numpy as np
 import torch
 import json
+import argparse
 from datetime import datetime
 from ppo_agent import PPOAgent
 from ppo_qbound_agent import PPOQBoundAgent
 
+# Parse command line arguments
+parser = argparse.ArgumentParser(description='PPO on LunarLanderContinuous-v3 with QBound')
+parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility (default: 42)')
+args = parser.parse_args()
 
-SEED = 42
+SEED = args.seed
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 
@@ -199,7 +204,7 @@ def main():
                 print("  ✅ SUCCESS: QBound works on continuous actions!")
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = f"/root/projects/QBound/results/ppo/lunarlander_continuous_{timestamp}.json"
+    output_file = f"/root/projects/QBound/results/ppo/lunarlander_continuous_seed{SEED}_{timestamp}.json"
 
     import os
     os.makedirs(os.path.dirname(output_file), exist_ok=True)

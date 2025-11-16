@@ -251,11 +251,11 @@ def main():
 
     # Train agent WITH QBound (Step-Aware)
     print("\n>>> Training agent WITH QBound (Step-Aware Dynamic Bounds)...")
-    # For CartPole with dense rewards:
-    # Q_max = (max_steps - current_step) * reward_per_step
-    # At step 0: Q_max = 500 * 1 = 500
-    # At step 250: Q_max = 250 * 1 = 250
-    # At step 499: Q_max = 1 * 1 = 1
+    # For CartPole with dense rewards and discounting:
+    # Q_max(t) = reward_per_step * (1 - γ^(H-t)) / (1 - γ) where H=max_episode_steps (horizon)
+    # At step 0: Q_max(0) = 1 * (1 - 0.99^500) / (1 - 0.99) ≈ 99.34
+    # At step 250: Q_max(250) = 1 * (1 - 0.99^250) / (1 - 0.99) ≈ 91.78
+    # At step 499: Q_max(499) = 1 * (1 - 0.99^1) / (1 - 0.99) ≈ 1.0
     agent_qbound = DQNAgent(
         state_dim=env.observation_space,
         action_dim=env.action_space,

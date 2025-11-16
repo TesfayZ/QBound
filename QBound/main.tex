@@ -1069,9 +1069,9 @@ The 6-way comparison reveals critical insights about algorithm-environment inter
 \begin{itemize}
     \item State space: 4D continuous (position, velocity, angle, angular velocity)
     \item Reward: $r = +1$ per timestep (survival task)
-    \item Episode terminates on failure, max 500 steps
+    \item Episode terminates on failure, max 500 steps per episode (horizon $H=500$)
     \item Discount factor: $\gamma = 0.99$
-    \item Q-value bounds: $Q_{\min} = 0$, $Q_{\max}(t) = (500 - t)$ (step-aware dynamic bounds)
+    \item Q-value bounds: $Q_{\min} = 0$, $Q_{\max}(t) = \frac{1-\gamma^{(H-t)}}{1-\gamma}$ where $H=500$ (step-aware dynamic bounds, $Q_{\max}(0) \approx 99.34$)
 \end{itemize}
 
 \textbf{Actual Results:}
@@ -1681,24 +1681,48 @@ $$\nabla_\theta J = \mathbb{E}[\nabla_a Q(s,a)|_{a=\mu_\theta(s)} \cdot \nabla_\
 
 \subsection{Part 5: Policy Gradient Methods - PPO with Value Bounding}
 
+% TODO: PPO RESULTS NEED RE-EVALUATION WITH CORRECTED IMPLEMENTATION
+% Previous implementation incorrectly clipped next_values during GAE computation,
+% which distorted advantages and caused catastrophic failures.
+% New implementation (Option 1): Clip RETURNS only (targets for critic), NOT during GAE.
+% This matches DQN/DDQN philosophy: clip what the value network learns from.
+% Re-run experiments after fixing ppo_qbound_agent.py
+%
+% IMPORTANT DISTINCTION: QBound for PPO is NOT about overestimation prevention
+% PPO doesn't have systematic overestimation bias (no max operator in bootstrapping)
+% Instead, QBound for PPO targets: variance reduction, gradient scaling, regularization
+% This is a DIFFERENT motivation than DQN/DDQN where overestimation is the core problem
+
 Having established that Soft QBound successfully extends to DDPG but conflicts with TD3 for continuous control, we investigated whether \textit{policy gradient methods} could benefit from value bounding. Unlike deterministic actor-critic methods, PPO (Proximal Policy Optimization) \citep{schulman2017proximal} uses a critic V(s) for advantage estimation rather than Q(s,a) for policy gradients, potentially avoiding the gradient discontinuity issues that affect DDPG/TD3.
+
+\textbf{Important Distinction:} QBound's application to PPO differs fundamentally from its application to value-based methods. In DQN/DDQN, QBound addresses \textit{systematic overestimation bias} caused by the max operator in bootstrapping ($Q(s,a) \gets r + \gamma \max_{a'} Q(s',a')$). However, PPO does not suffer from this bias—its value function bootstraps without a max operator ($V(s) \gets r + \gamma V(s')$), and policy updates depend on advantages rather than value magnitudes. Therefore, QBound for PPO targets \textit{secondary stabilization mechanisms}: variance reduction in critic targets, better-scaled gradients during early training, and soft regularization of value predictions. This represents an exploratory application of environment-aware bounds beyond overestimation prevention.
 
 \subsubsection{Theoretical Motivation}
 
-\textbf{Key Difference from DDPG/TD3:}
+\textbf{Why PPO is Different from Value-Based Methods:}
 \begin{itemize}
-    \item \textbf{DDPG/TD3:} Train policy via $\nabla_\theta J = \mathbb{E}[\nabla_a Q(s,a) \cdot \nabla_\theta \mu(s)]$. Requires smooth $\nabla_a Q$.
-    \item \textbf{PPO:} Train policy via $\nabla_\theta J = \mathbb{E}[A(s,a) \cdot \nabla_\theta \log \pi(a|s)]$. Uses advantages, not critic gradients.
+    \item \textbf{DQN/DDQN:} Use $Q(s,a) \gets r + \gamma \max_{a'} Q(s',a')$ (max operator causes overestimation bias)
+    \item \textbf{PPO:} Uses $V(s) \gets r + \gamma V(s')$ (no max operator, no systematic overestimation)
+    \item \textbf{Policy updates:} PPO uses advantages $A(s,a)$, not value magnitudes, for policy gradients
 \end{itemize}
 
-\textbf{Hypothesis:} Since PPO bounds V(s) rather than Q(s,a), and policy gradients don't depend on $\nabla_a V$, QBound might work even on continuous action spaces.
-
-\textbf{Implementation:} We apply QBound to PPO's critic by:
+\textbf{Hypothesis:} While PPO doesn't suffer from overestimation bias, environment-aware bounds may provide \textit{secondary benefits}:
 \begin{enumerate}
-    \item Bounding next-state values during bootstrapping: $V(s') \leftarrow \clip(V(s'), V_{\min}, V_{\max})$
-    \item Computing advantages using bounded values: $A(s,a) = r + \gamma V(s') - V(s)$
-    \item Maintaining the same policy gradient computation
+    \item \textbf{Variance reduction:} Clipping critic targets may reduce bootstrap variance during early training
+    \item \textbf{Gradient scaling:} Bounded values prevent extreme predictions that cause training instability
+    \item \textbf{Regularization:} Acts as soft constraint on critic, potentially improving generalization
 \end{enumerate}
+
+\textbf{Implementation (Corrected):} We apply QBound to PPO's critic targets (not advantages):
+\begin{enumerate}
+    \item Compute GAE \textit{without} clipping: $\delta_t = r + \gamma V(s') - V(s)$ (preserves unbiased advantages)
+    \item Compute returns: $G_t = A_t + V(s_t)$
+    \item \textbf{Clip returns only:} $G_t^{\text{clipped}} = \clip(G_t, V_{\min}, V_{\max})$ (bounds what critic learns)
+    \item Train critic with clipped returns: $\mathcal{L}_{\text{critic}} = \text{MSE}(V(s), G^{\text{clipped}})$
+    \item Train policy with \textit{unclipped} advantages: $\mathcal{L}_{\text{policy}} = -A \cdot \log \pi(a|s)$
+\end{enumerate}
+
+This approach mirrors DQN/DDQN: clip the targets (what the value network learns from), not the signal used for policy updates.
 
 \textbf{QBound Configuration for PPO:}
 
@@ -1709,11 +1733,10 @@ Having established that Soft QBound successfully extends to DDPG but conflicts w
 \toprule
 \textbf{Environment} & \textbf{$V_{\min}$} & \textbf{$V_{\max}$} & \textbf{$\gamma$} & \textbf{Type} & \textbf{Implementation} \\
 \midrule
-Pendulum-v1 & -3200 & 0 & 0.99 & Static & Soft QBound \\
-LunarLanderCont-v3 & -100 & 200 & 0.99 & Static & Soft QBound \\
+Pendulum-v1 & -1409.33 & 0 & 0.99 & Static/Dynamic & Hard clip returns \\
 \bottomrule
 \end{tabular}
-\caption{PPO value bounding configurations. Both use Soft QBound with quadratic penalty $\mathcal{L} = \max(0, V-V_{\max})^2 + \max(0, V_{\min}-V)^2$ and penalty weight $\lambda = 0.1$. Static bounds used because PPO has different training dynamics than Q-learning.}
+\caption{PPO value bounding configuration. Uses hard clipping on returns (critic targets): $G^{\text{clip}} = \clip(G, V_{\min}, V_{\max})$. For dynamic bounds, $V_{\min}(t) = r_{\text{step}} \cdot (1 - \gamma^{H-t}) / (1-\gamma)$ adapts to remaining episode potential. Static bound $V_{\min} = -1409.33$ is the discounted worst-case cumulative reward (200 steps × -16.27 avg reward, with $\gamma=0.99$).}
 \label{tab:ppo-qbound-config}
 \end{table}
 

@@ -25,12 +25,17 @@ import gymnasium as gym
 import numpy as np
 import torch
 import json
+import argparse
 from datetime import datetime
 from ppo_agent import PPOAgent
 from ppo_qbound_agent import PPOQBoundAgent
 
+# Parse command line arguments
+parser = argparse.ArgumentParser(description='PPO on Pendulum-v1 with QBound')
+parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility (default: 42)')
+args = parser.parse_args()
 
-SEED = 42
+SEED = args.seed
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 
@@ -84,14 +89,39 @@ def train_agent(agent_type, num_episodes=500, trajectory_length=2048):
             minibatch_size=64,
             device='cpu'
         )
-    elif agent_type == "PPO + QBound":
+    elif agent_type == "PPO + Static QBound":
         agent = PPOQBoundAgent(
             state_dim=3,
             action_dim=1,
             continuous_action=True,
             V_min=-3200.0,
             V_max=0.0,
-            use_step_aware_bounds=False,
+            use_step_aware_bounds=False,  # Static bounds
+            use_soft_qbound=True,  # Enable soft QBound for gradient flow
+            qbound_penalty_weight=0.1,
+            qbound_penalty_type='quadratic',
+            soft_clip_beta=0.1,
+            hidden_sizes=[64, 64],
+            lr_actor=3e-4,
+            lr_critic=1e-3,
+            gamma=0.99,
+            gae_lambda=0.95,
+            clip_epsilon=0.2,
+            entropy_coef=0.01,
+            ppo_epochs=10,
+            minibatch_size=64,
+            device='cpu'
+        )
+    elif agent_type == "PPO + Dynamic QBound":
+        agent = PPOQBoundAgent(
+            state_dim=3,
+            action_dim=1,
+            continuous_action=True,
+            V_min=-3200.0,
+            V_max=0.0,
+            use_step_aware_bounds=True,  # Enable dynamic bounds
+            max_episode_steps=200,
+            step_reward=-16.27,  # Approximate step reward
             use_soft_qbound=True,  # Enable soft QBound for gradient flow
             qbound_penalty_weight=0.1,
             qbound_penalty_type='quadratic',
@@ -165,20 +195,54 @@ def main():
     print("CRITICAL TEST: Does QBound work on continuous actions?")
     print("="*60)
 
-    results = {}
+    # Configuration for reproducibility
+    config = {
+        'env': 'Pendulum-v1',
+        'num_episodes': 500,
+        'trajectory_length': 2048,
+        'max_steps': 200,
+        'seed': SEED,
+        'hidden_sizes': [64, 64],
+        'lr_actor': 3e-4,
+        'lr_critic': 1e-3,
+        'gamma': 0.99,
+        'gae_lambda': 0.95,
+        'clip_epsilon': 0.2,
+        'entropy_coef': 0.01,
+        'ppo_epochs': 10,
+        'minibatch_size': 64,
+        # QBound parameters
+        'V_min': -3200.0,
+        'V_max': 0.0,
+        # Soft QBound parameters (for QBound methods)
+        'soft_qbound_params': {
+            'use_soft_qbound': True,
+            'qbound_penalty_weight': 0.1,
+            'qbound_penalty_type': 'quadratic',
+            'soft_clip_beta': 0.1
+        },
+        # Dynamic QBound parameters (for dynamic method)
+        'dynamic_qbound_params': {
+            'use_step_aware_bounds': True,
+            'max_episode_steps': 200,
+            'step_reward': -16.27,
+        }
+    }
 
-    for agent_type in ["Baseline PPO", "PPO + QBound"]:
+    results = {'config': config, 'training': {}}
+
+    for agent_type in ["Baseline PPO", "PPO + Static QBound", "PPO + Dynamic QBound"]:
         result = train_agent(agent_type, num_episodes=500)
-        results[agent_type] = result
+        results['training'][agent_type] = result
 
     print("\n" + "="*60)
     print("FINAL RESULTS (Last 100 Episodes)")
     print("="*60)
 
-    baseline_mean = results["Baseline PPO"]['final_100_episodes']['mean']
+    baseline_mean = results['training']["Baseline PPO"]['final_100_episodes']['mean']
 
-    for agent_type in ["Baseline PPO", "PPO + QBound"]:
-        stats = results[agent_type]['final_100_episodes']
+    for agent_type in ["Baseline PPO", "PPO + Static QBound", "PPO + Dynamic QBound"]:
+        stats = results['training'][agent_type]['final_100_episodes']
         improvement = ((stats['mean'] - baseline_mean) / abs(baseline_mean) * 100) if baseline_mean != 0 else 0
 
         print(f"\n{agent_type}:")
@@ -193,7 +257,7 @@ def main():
                 print("  ✅ SUCCESS: QBound works on continuous actions!")
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = f"/root/projects/QBound/results/ppo/pendulum_{timestamp}.json"
+    output_file = f"/root/projects/QBound/results/ppo/pendulum_seed{SEED}_{timestamp}.json"
 
     import os
     os.makedirs(os.path.dirname(output_file), exist_ok=True)

@@ -13,13 +13,18 @@ import numpy as np
 import torch
 import json
 import random
+import argparse
 from datetime import datetime
 from ddpg_agent import DDPGAgent
 from tqdm import tqdm
 
+# Parse command line arguments
+parser = argparse.ArgumentParser(description='DDPG on Pendulum-v1 with Soft QBound')
+parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility (default: 42)')
+args = parser.parse_args()
 
 # Reproducibility
-SEED = 42
+SEED = args.seed
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 random.seed(SEED)
@@ -155,9 +160,24 @@ def main():
             'gamma': GAMMA,
             'lr_actor': LR_ACTOR,
             'lr_critic': LR_CRITIC,
+            'tau': TAU,
+            'batch_size': BATCH_SIZE,
+            'warmup_episodes': WARMUP_EPISODES,
             'qbound_min': QBOUND_MIN,
             'qbound_max': QBOUND_MAX,
-            'seed': SEED
+            'seed': SEED,
+            # Soft QBound parameters (for QBound methods)
+            'soft_qbound_params': {
+                'qbound_penalty_weight': 0.1,
+                'qbound_penalty_type': 'quadratic',
+                'soft_clip_beta': 0.1
+            },
+            # Dynamic QBound parameters (for dynamic method)
+            'dynamic_qbound_params': {
+                'max_episode_steps': MAX_STEPS,
+                'step_reward': -16.27,
+                'reward_is_negative': True
+            }
         },
         'training': {}
     }
@@ -182,7 +202,7 @@ def main():
         'mean_reward': float(np.mean(baseline_rewards))
     }
 
-    # ===== QBound-DDPG =====
+    # ===== QBound-DDPG (Soft QBound only for continuous control) =====
     qbound_agent = DDPGAgent(
         state_dim=state_dim,
         action_dim=action_dim,
@@ -194,14 +214,48 @@ def main():
         use_qbound=True,
         qbound_min=QBOUND_MIN,
         qbound_max=QBOUND_MAX,
+        use_soft_qbound=True,  # CRITICAL: Use soft QBound for continuous control
+        qbound_penalty_weight=0.1,
+        qbound_penalty_type='quadratic',
+        soft_clip_beta=0.1,
         device='cpu'
     )
 
-    qbound_rewards = train_agent(env, qbound_agent, "QBound-DDPG")
-    results['training']['qbound'] = {
+    qbound_rewards = train_agent(env, qbound_agent, "Static QBound-DDPG")
+    results['training']['static_qbound'] = {
         'rewards': qbound_rewards,
         'total_reward': float(np.sum(qbound_rewards)),
         'mean_reward': float(np.mean(qbound_rewards))
+    }
+
+    # ===== Dynamic Soft QBound-DDPG =====
+    dynamic_qbound_agent = DDPGAgent(
+        state_dim=state_dim,
+        action_dim=action_dim,
+        max_action=max_action,
+        lr_actor=LR_ACTOR,
+        lr_critic=LR_CRITIC,
+        gamma=GAMMA,
+        tau=TAU,
+        use_qbound=True,
+        qbound_min=QBOUND_MIN,
+        qbound_max=QBOUND_MAX,
+        use_soft_qbound=True,  # Soft clipping for actor-critic
+        qbound_penalty_weight=0.1,
+        qbound_penalty_type='quadratic',
+        soft_clip_beta=0.1,
+        use_step_aware_qbound=True,  # Enable dynamic bounds
+        max_episode_steps=MAX_STEPS,
+        step_reward=-16.27,  # Approximate step reward
+        reward_is_negative=True,  # Pendulum has negative rewards
+        device='cpu'
+    )
+
+    dynamic_qbound_rewards = train_agent(env, dynamic_qbound_agent, "Dynamic QBound-DDPG")
+    results['training']['dynamic_qbound'] = {
+        'rewards': dynamic_qbound_rewards,
+        'total_reward': float(np.sum(dynamic_qbound_rewards)),
+        'mean_reward': float(np.mean(dynamic_qbound_rewards))
     }
 
     # ===== Evaluation =====
@@ -210,20 +264,26 @@ def main():
     print("=" * 80)
 
     baseline_eval_mean, baseline_eval_std = evaluate_agent(env, baseline_agent, EVAL_EPISODES)
-    qbound_eval_mean, qbound_eval_std = evaluate_agent(env, qbound_agent, EVAL_EPISODES)
+    static_qbound_eval_mean, static_qbound_eval_std = evaluate_agent(env, qbound_agent, EVAL_EPISODES)
+    dynamic_qbound_eval_mean, dynamic_qbound_eval_std = evaluate_agent(env, dynamic_qbound_agent, EVAL_EPISODES)
 
     print(f"\n>>> Evaluating agents ({EVAL_EPISODES} episodes)...")
-    print(f"  Baseline DDPG: {baseline_eval_mean:.2f} ± {baseline_eval_std:.2f}")
-    print(f"  QBound-DDPG:   {qbound_eval_mean:.2f} ± {qbound_eval_std:.2f}")
+    print(f"  Baseline DDPG:        {baseline_eval_mean:.2f} ± {baseline_eval_std:.2f}")
+    print(f"  Static QBound-DDPG:   {static_qbound_eval_mean:.2f} ± {static_qbound_eval_std:.2f}")
+    print(f"  Dynamic QBound-DDPG:  {dynamic_qbound_eval_mean:.2f} ± {dynamic_qbound_eval_std:.2f}")
 
     results['evaluation'] = {
         'baseline': {
             'mean': float(baseline_eval_mean),
             'std': float(baseline_eval_std)
         },
-        'qbound': {
-            'mean': float(qbound_eval_mean),
-            'std': float(qbound_eval_std)
+        'static_qbound': {
+            'mean': float(static_qbound_eval_mean),
+            'std': float(static_qbound_eval_std)
+        },
+        'dynamic_qbound': {
+            'mean': float(dynamic_qbound_eval_mean),
+            'std': float(dynamic_qbound_eval_std)
         }
     }
 
@@ -233,20 +293,25 @@ def main():
     print("=" * 80)
 
     baseline_total = results['training']['baseline']['total_reward']
-    qbound_total = results['training']['qbound']['total_reward']
-    improvement = ((qbound_total - baseline_total) / abs(baseline_total)) * 100
+    static_qbound_total = results['training']['static_qbound']['total_reward']
+    dynamic_qbound_total = results['training']['dynamic_qbound']['total_reward']
+
+    static_improvement = ((static_qbound_total - baseline_total) / abs(baseline_total)) * 100
+    dynamic_improvement = ((dynamic_qbound_total - baseline_total) / abs(baseline_total)) * 100
 
     print(f"\nTotal cumulative reward:")
-    print(f"  Baseline DDPG: {baseline_total:.0f}")
-    print(f"  QBound-DDPG:   {qbound_total:.0f} ({improvement:+.1f}%)")
+    print(f"  Baseline DDPG:        {baseline_total:.0f}")
+    print(f"  Static QBound-DDPG:   {static_qbound_total:.0f} ({static_improvement:+.1f}%)")
+    print(f"  Dynamic QBound-DDPG:  {dynamic_qbound_total:.0f} ({dynamic_improvement:+.1f}%)")
 
     print(f"\nAverage episode reward:")
-    print(f"  Baseline DDPG: {results['training']['baseline']['mean_reward']:.2f}")
-    print(f"  QBound-DDPG:   {results['training']['qbound']['mean_reward']:.2f}")
+    print(f"  Baseline DDPG:        {results['training']['baseline']['mean_reward']:.2f}")
+    print(f"  Static QBound-DDPG:   {results['training']['static_qbound']['mean_reward']:.2f}")
+    print(f"  Dynamic QBound-DDPG:  {results['training']['dynamic_qbound']['mean_reward']:.2f}")
 
     # Save results
     timestamp = results['timestamp']
-    output_file = f"/root/projects/QBound/results/pendulum/ddpg_comparison_{timestamp}.json"
+    output_file = f"/root/projects/QBound/results/pendulum/ddpg_comparison_seed{SEED}_{timestamp}.json"
     with open(output_file, 'w') as f:
         json.dump(results, f, indent=2)
 
@@ -257,15 +322,21 @@ def main():
     print("=" * 80)
 
     # Analysis
-    if improvement > 5:
-        print("\n🎯 CONCLUSION:")
-        print("✅ QBound helps DDPG on Pendulum (dense negative rewards)")
-    elif improvement < -5:
-        print("\n🎯 CONCLUSION:")
-        print("⚠️  QBound hurts DDPG on Pendulum - bounds may be too restrictive")
+    print("\n🎯 CONCLUSIONS:")
+
+    if static_improvement > 5:
+        print("  Static QBound: ✅ Helps DDPG on Pendulum (dense negative rewards)")
+    elif static_improvement < -5:
+        print("  Static QBound: ⚠️  Hurts DDPG - bounds may be too restrictive")
     else:
-        print("\n🎯 CONCLUSION:")
-        print("➖ QBound has minimal impact on DDPG for Pendulum")
+        print("  Static QBound: ➖ Minimal impact on DDPG")
+
+    if dynamic_improvement > 5:
+        print("  Dynamic QBound: ✅ Helps DDPG on Pendulum (dense negative rewards)")
+    elif dynamic_improvement < -5:
+        print("  Dynamic QBound: ⚠️  Hurts DDPG - bounds may be too restrictive")
+    else:
+        print("  Dynamic QBound: ➖ Minimal impact on DDPG")
 
     env.close()
 

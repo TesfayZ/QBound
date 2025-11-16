@@ -6,7 +6,45 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **QBound** - Q-Value Bounding for Deep Reinforcement Learning
 
-A research project implementing QBound, a technique for bounding Q-values in Deep Q-Networks (DQN) to improve learning in sparse reward environments. Tests on GridWorld, FrozenLake, and CartPole environments.
+A research project implementing QBound, a technique for bounding Q-values in Deep Q-Networks (DQN) to improve learning in sparse reward environments. Tests on GridWorld, FrozenLake, CartPole, Pendulum, MountainCar, and Acrobot environments.
+
+## Experiment Organization (Option 1: QBound Variant Coverage)
+
+**NEW**: Experiments are organized by QBound applicability according to Rule 3:
+
+### Category 1: Time-Step Dependent Rewards (Static + Dynamic QBound)
+**6 scripts, 30 total methods**
+
+Environments where rewards accumulate predictably with time steps:
+- **CartPole-v1**: Dense positive reward (+1 per step)
+- **Pendulum-v1**: Dense negative reward (time-step dependent cost)
+
+Scripts:
+1. `train_cartpole_dqn_full_qbound.py` (6 methods: DQN/DDQN × baseline/static/dynamic)
+2. `train_cartpole_dueling_full_qbound.py` (6 methods: Dueling DQN × baseline/static/dynamic)
+3. `train_pendulum_dqn_full_qbound.py` (6 methods: DQN/DDQN × baseline/static/dynamic)
+4. `train_pendulum_ddpg_full_qbound.py` (3 methods: DDPG × baseline/static/dynamic with softplus_clip)
+5. `train_pendulum_td3_full_qbound.py` (3 methods: TD3 × baseline/static/dynamic with softplus_clip)
+6. `train_pendulum_ppo_full_qbound.py` (3 methods: PPO × baseline/static/dynamic with softplus_clip on V(s))
+
+### Category 2: Sparse/State-Dependent Rewards (Static QBound Only)
+**4 scripts, 16 total methods**
+
+Environments where rewards depend on state transitions, NOT time steps:
+- **GridWorld**: Sparse terminal (+1 at goal only)
+- **FrozenLake-v1**: Sparse terminal (+1 at goal only)
+- **MountainCar-v0**: State-dependent (-1 until goal reached)
+- **Acrobot-v1**: State-dependent (-1 until swing-up)
+
+Scripts (4 methods each: DQN/DDQN × baseline/static):
+1. `train_gridworld_dqn_static_qbound.py`
+2. `train_frozenlake_dqn_static_qbound.py`
+3. `train_mountaincar_dqn_static_qbound.py`
+4. `train_acrobot_dqn_static_qbound.py`
+
+**Rule 3**: Dynamic QBound is ONLY applicable to time-step dependent rewards. For sparse/state-dependent rewards, only static QBound is theoretically justified.
+
+See `docs/EXPERIMENT_ORGANIZATION.md` for complete details.
 
 ## ⚠️ CRITICAL: Directory Structure MUST Be Maintained
 
@@ -62,19 +100,67 @@ Running the same experiment twice with the same seed MUST produce identical resu
 
 ## Development Commands
 
-### Run Experiments
+### Run Organized Experiments (Option 1: QBound Variant Coverage)
+
+**NEW**: Experiments are now organized by QBound applicability with **MULTI-SEED SUPPORT**:
 
 ```bash
-# Individual environments
-python3 experiments/gridworld/train_gridworld.py
-python3 experiments/frozenlake/train_frozenlake.py
-python3 experiments/cartpole/train_cartpole.py
+# Run all organized experiments with default seed (42)
+python3 experiments/run_all_organized_experiments.py
 
-# CartPole 3-way comparison (baseline vs static vs dynamic QBound)
-python3 experiments/cartpole/train_cartpole_3way.py
+# Run with single custom seed
+python3 experiments/run_all_organized_experiments.py --seed 123
 
-# All experiments
-python3 experiments/combined/run_all_experiments.py
+# 🆕 Run with MULTIPLE seeds (automatic multi-seed runs with crash recovery)
+python3 experiments/run_all_organized_experiments.py --seeds 42 43 44
+
+# Multi-seed with 5 seeds (recommended for statistical significance)
+python3 experiments/run_all_organized_experiments.py --seeds 42 43 44 45 46
+
+# Run only time-step dependent experiments (static + dynamic QBound)
+python3 experiments/run_all_organized_experiments.py --category timestep --seeds 42 43 44
+
+# Run only sparse/state-dependent experiments (static QBound only)
+python3 experiments/run_all_organized_experiments.py --category sparse --seeds 42 43 44
+
+# Dry run (preview what would be executed)
+python3 experiments/run_all_organized_experiments.py --dry-run --seeds 42 43 44
+```
+
+**🔄 Crash Recovery**: If interrupted, simply re-run the same command. The system will:
+- Load existing progress from `results/organized_experiments_log.json`
+- Skip already-completed seeds automatically
+- Continue from where it left off
+
+See `docs/EXPERIMENT_ORGANIZATION.md` for complete documentation on the new structure.
+
+### Run Individual Experiments
+
+**Time-step dependent (Static + Dynamic QBound)**:
+```bash
+# CartPole experiments
+python3 experiments/cartpole/train_cartpole_dqn_full_qbound.py --seed 42
+python3 experiments/cartpole/train_cartpole_dueling_full_qbound.py --seed 42
+
+# Pendulum experiments
+python3 experiments/pendulum/train_pendulum_dqn_full_qbound.py --seed 42
+python3 experiments/pendulum/train_pendulum_ddpg_full_qbound.py --seed 42
+python3 experiments/ppo/train_pendulum_ppo_full_qbound.py --seed 42
+```
+
+**Sparse/State-dependent (Static QBound only)**:
+```bash
+python3 experiments/gridworld/train_gridworld_dqn_static_qbound.py --seed 42
+python3 experiments/frozenlake/train_frozenlake_dqn_static_qbound.py --seed 42
+python3 experiments/mountaincar/train_mountaincar_dqn_static_qbound.py --seed 42
+python3 experiments/acrobot/train_acrobot_dqn_static_qbound.py --seed 42
+```
+
+### Run Legacy Experiments
+
+```bash
+# Old 6-way comparison scripts (still available)
+python3 experiments/cartpole/train_cartpole_6way.py
 ```
 
 ### Analyze Results
@@ -220,24 +306,83 @@ See `docs/CHANGES.md` for details.
    - Create results folder: `results/<new_env>/`
    - Update `experiments/combined/run_all_experiments.py`
 
+## QBound Violation Tracking
+
+**NEW (2025-10-29)**: All QBound experiments now track violations instead of running ablation studies.
+
+### What is Tracked
+
+**Hard QBound (DQN/DDQN/Dueling):**
+- Violation rates: % of Q-values violating bounds per minibatch
+- Violation magnitudes: How far beyond bounds
+- Separate tracking for next-state Q vs TD targets
+
+**Soft QBound (DDPG/TD3/PPO):**
+- Clipping activation rate: % of Q-values exceeding bounds (before soft clipping)
+- Clipping magnitude: How far Q-values deviate from bounds
+- Gradient flow metrics: Verifies non-zero gradients during clipping
+
+### Usage in Results
+
+All experiment results include violation statistics:
+```json
+{
+  "training": {
+    "static_qbound": {
+      "rewards": [...],
+      "violations": {
+        "per_episode": [{...}, {...}],
+        "mean": {...},
+        "final_100": {...}
+      }
+    }
+  }
+}
+```
+
+### Analysis
+
+See `docs/QBOUND_VIOLATION_TRACKING.md` for:
+- Complete metric definitions
+- Visualization guidelines
+- Interpretation for reviewers
+
 ## Known Issues
 
-1. **Q_max values incorrectly set** - Based on step rewards instead of episode returns
-2. **CartPole severely limited** - Q_max=100 but optimal return ≈500
-3. **GridWorld value propagation** - Q_max=1.0 prevents proper learning
+1. **Q_max values based on theoretical bounds** - May need empirical validation
+2. **Early training violations** - Expected as agent explores
+3. **Late training violations** - Should decrease as Q-values stabilize
 
 See `docs/ANALYSIS_SUMMARY.md` for detailed analysis.
 
 ## Quick Reference
 
+### Core Components
 - **Main algorithm:** `src/dqn_agent.py`
-- **GridWorld code:** `experiments/gridworld/train_gridworld.py`
-- **FrozenLake code:** `experiments/frozenlake/train_frozenlake.py`
-- **CartPole code:** `experiments/cartpole/train_cartpole.py`
-- **Run all:** `experiments/combined/run_all_experiments.py`
-- **Analysis:** `analysis/` folder
+- **Analysis tools:** `analysis/` folder
 - **Documentation:** `docs/` folder
 - **Results:** `results/` folder
+
+### Organized Experiments (NEW)
+- **Run all organized:** `experiments/run_all_organized_experiments.py`
+- **Organization docs:** `docs/EXPERIMENT_ORGANIZATION.md`
+
+**Time-step dependent (Static + Dynamic QBound)**:
+- CartPole DQN: `experiments/cartpole/train_cartpole_dqn_full_qbound.py`
+- CartPole Dueling: `experiments/cartpole/train_cartpole_dueling_full_qbound.py`
+- Pendulum DQN: `experiments/pendulum/train_pendulum_dqn_full_qbound.py`
+- Pendulum DDPG: `experiments/pendulum/train_pendulum_ddpg_full_qbound.py`
+- Pendulum PPO: `experiments/ppo/train_pendulum_ppo_full_qbound.py`
+
+**Sparse/State-dependent (Static QBound only)**:
+- GridWorld: `experiments/gridworld/train_gridworld_dqn_static_qbound.py`
+- FrozenLake: `experiments/frozenlake/train_frozenlake_dqn_static_qbound.py`
+- MountainCar: `experiments/mountaincar/train_mountaincar_dqn_static_qbound.py`
+- Acrobot: `experiments/acrobot/train_acrobot_dqn_static_qbound.py`
+
+### Legacy Experiments
+- **Run all (old):** `experiments/combined/run_all_experiments.py`
+- **CartPole 6-way:** `experiments/cartpole/train_cartpole_6way.py`
 
 ## Paper Compilation and Overleaf Upload
 
@@ -295,7 +440,7 @@ pdflatex main.tex
 
 **🔴 CRITICAL: The directory structure MUST be maintained for all future experiments!**
 
-See `PROJECT_ORGANIZATION.md` for complete documentation on the structure.
+See `docs/EXPERIMENT_ORGANIZATION.md` for complete documentation on experiment organization.
 
 ### Key Reminders:
 

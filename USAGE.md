@@ -59,7 +59,7 @@ Is your action space discrete or continuous?
 │           └─ Use STATIC bounds from domain knowledge
 │
 └─ CONTINUOUS (DDPG, TD3, PPO)
-   └─ Use SOFT QBOUND (penalty-based)
+   └─ Use SOFT QBOUND (differentiable soft clipping)
       │
       └─ What's your reward structure?
          │
@@ -195,7 +195,7 @@ for episode in range(num_episodes):
 
 ## DDPG with Soft QBound
 
-### Setup with Soft Penalty
+### Setup with Soft Clipping
 
 ```python
 import gymnasium as gym
@@ -224,12 +224,9 @@ agent = DDPGAgent(
     gamma=gamma,
     tau=0.005,
     use_qbound=True,
-    use_soft_qbound=True,          # CRITICAL: Enable soft penalty
+    use_soft_clip=True,       # CRITICAL: Enable soft clipping (differentiable)
     qbound_min=Q_min,
     qbound_max=Q_max,
-    qbound_penalty_weight=0.1,     # λ = 0.1
-    qbound_penalty_type='quadratic',  # Quadratic penalty
-    soft_clip_beta=0.1,            # Softplus smoothing
     device='cpu'
 )
 
@@ -258,14 +255,13 @@ for episode in range(num_episodes):
         # Store transition
         agent.replay_buffer.push(state, action, reward, next_state, done)
 
-        # Train (returns 3 values with soft QBound)
+        # Train
         if episode >= warmup_episodes and len(agent.replay_buffer) >= batch_size:
-            critic_loss, actor_loss, penalty = agent.train(batch_size)
+            critic_loss, actor_loss = agent.train(batch_size)
 
             if episode % 10 == 0:
                 print(f"  Critic Loss: {critic_loss:.4f}, "
-                      f"Actor Loss: {actor_loss:.4f}, "
-                      f"QBound Penalty: {penalty:.4f}")
+                      f"Actor Loss: {actor_loss:.4f}")
 
         episode_reward += reward
         state = next_state
@@ -284,10 +280,9 @@ agent = SimpleDDPGAgent(
     action_dim=1,
     max_action=2.0,
     use_qbound=True,
-    use_soft_qbound=True,  # Essential for learning
+    use_soft_clip=True,  # Essential for learning
     qbound_min=Q_min,
-    qbound_max=Q_max,
-    qbound_penalty_weight=0.1
+    qbound_max=Q_max
 )
 
 # Result: With Soft QBound, achieves near-competitive performance
@@ -319,10 +314,7 @@ agent = PPOQBoundAgent(
     V_min=V_min,
     V_max=V_max,
     use_step_aware_bounds=False,  # Static bounds for sparse rewards
-    use_soft_qbound=True,          # Enable soft penalty
-    qbound_penalty_weight=0.1,
-    qbound_penalty_type='quadratic',
-    soft_clip_beta=0.1,
+    use_soft_qbound=True,          # Enable soft clipping
     hidden_sizes=[128, 128],
     lr_actor=3e-4,
     lr_critic=1e-3,

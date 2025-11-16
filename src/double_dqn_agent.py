@@ -148,6 +148,9 @@ class DoubleDQNAgent:
         self.steps = 0
         self.losses = []
 
+        # Violation tracking for QBound analysis
+        self.violation_stats_history = []
+
     def select_action(self, state: np.ndarray, eval_mode: bool = False) -> int:
         """Select action using epsilon-greedy policy."""
         if not eval_mode and random.random() < self.epsilon:
@@ -167,7 +170,7 @@ class DoubleDQNAgent:
         """
         self.replay_buffer.push(state, action, reward, next_state, done, current_step)
 
-    def train_step(self) -> float:
+    def train_step(self):
         """
         Perform one training step with Double Q-Learning and optional QBound.
 
@@ -177,9 +180,13 @@ class DoubleDQNAgent:
         3. Optional QBound: Clip Q_target(s', a*) to environment-aware bounds
         4. Compute TD target: r + γ * clip(Q_target(s', a*))
         5. Update online network to minimize TD error
+
+        Returns:
+            loss (float): TD loss value
+            violation_stats (dict or None): QBound violation statistics if use_qclip=True
         """
         if len(self.replay_buffer) < self.batch_size:
-            return 0.0
+            return 0.0, None
 
         # Sample batch
         batch = self.replay_buffer.sample(self.batch_size)
@@ -205,9 +212,11 @@ class DoubleDQNAgent:
 
             if self.reward_is_negative:
                 # Negative rewards: Q ∈ [Q_min(t), 0]
-                dynamic_qmin_current = -geometric_sum_current * self.step_reward
+                # step_reward is already negative (e.g., -16.27), geometric_sum is positive
+                # Q_min(t) = step_reward * geometric_sum = (-16.27) * 86.60 = -1409.33 ✓
+                dynamic_qmin_current = geometric_sum_current * self.step_reward
                 dynamic_qmax_current = torch.zeros_like(dynamic_qmin_current)
-                dynamic_qmin_next = -geometric_sum_next * self.step_reward
+                dynamic_qmin_next = geometric_sum_next * self.step_reward
                 dynamic_qmax_next = torch.zeros_like(dynamic_qmin_next)
             else:
                 # Positive rewards: Q ∈ [0, Q_max(t)]
@@ -227,27 +236,66 @@ class DoubleDQNAgent:
         current_q_values = current_q_all.gather(1, actions.unsqueeze(1)).squeeze()
 
         # Double Q-Learning: Decouple action selection from evaluation
+        violation_stats = None
+
         with torch.no_grad():
             # Use ONLINE network to SELECT best action
             next_actions = self.q_network(next_states).argmax(1, keepdim=True)
 
             # Use TARGET network to EVALUATE that action
-            next_q_values = self.target_network(next_states).gather(1, next_actions).squeeze()
+            next_q_values_raw = self.target_network(next_states).gather(1, next_actions).squeeze()
 
-            # Optional QBound: STEP 1 - Clip next-state Q-values to bounds at time t+1
+            # Track violations BEFORE clipping (for analysis)
             if self.use_qclip:
-                next_q_values = torch.clamp(next_q_values,
+                # Violations in next-state Q-values
+                next_q_violate_max = (next_q_values_raw > dynamic_qmax_next).float()
+                next_q_violate_min = (next_q_values_raw < dynamic_qmin_next).float()
+
+                violation_magnitude_max_next = torch.relu(next_q_values_raw - dynamic_qmax_next)
+                violation_magnitude_min_next = torch.relu(dynamic_qmin_next - next_q_values_raw)
+
+                # Optional QBound: STEP 1 - Clip next-state Q-values to bounds at time t+1
+                next_q_values = torch.clamp(next_q_values_raw,
                                            min=dynamic_qmin_next,
                                            max=dynamic_qmax_next)
+            else:
+                next_q_values = next_q_values_raw
 
-            # Compute target Q-values
-            target_q_values = rewards + (1 - dones) * self.gamma * next_q_values
+            # Compute target Q-values (before final clipping)
+            target_q_values_raw = rewards + (1 - dones) * self.gamma * next_q_values
 
-            # Optional QBound: STEP 2 - Clip final target to bounds at time t (IMPORTANT!)
             if self.use_qclip:
-                target_q_values = torch.clamp(target_q_values,
+                # Track violations in TD targets BEFORE final clipping
+                target_violate_max = (target_q_values_raw > dynamic_qmax_current).float()
+                target_violate_min = (target_q_values_raw < dynamic_qmin_current).float()
+
+                violation_magnitude_max_target = torch.relu(target_q_values_raw - dynamic_qmax_current)
+                violation_magnitude_min_target = torch.relu(dynamic_qmin_current - target_q_values_raw)
+
+                # Optional QBound: STEP 2 - Clip final target to bounds at time t (IMPORTANT!)
+                target_q_values = torch.clamp(target_q_values_raw,
                                              min=dynamic_qmin_current,
                                              max=dynamic_qmax_current)
+
+                # Compute violation statistics
+                violation_stats = {
+                    'next_q_violate_max_rate': next_q_violate_max.mean().item(),
+                    'next_q_violate_min_rate': next_q_violate_min.mean().item(),
+                    'target_violate_max_rate': target_violate_max.mean().item(),
+                    'target_violate_min_rate': target_violate_min.mean().item(),
+                    'total_violation_rate': ((next_q_violate_max + next_q_violate_min +
+                                             target_violate_max + target_violate_min) > 0).float().mean().item(),
+                    'violation_magnitude_max_next': violation_magnitude_max_next.mean().item(),
+                    'violation_magnitude_min_next': violation_magnitude_min_next.mean().item(),
+                    'violation_magnitude_max_target': violation_magnitude_max_target.mean().item(),
+                    'violation_magnitude_min_target': violation_magnitude_min_target.mean().item(),
+                    'qbound_max': dynamic_qmax_current.mean().item(),
+                    'qbound_min': dynamic_qmin_current.mean().item(),
+                }
+
+                self.violation_stats_history.append(violation_stats)
+            else:
+                target_q_values = target_q_values_raw
 
         # Compute loss
         if self.use_huber_loss:
@@ -275,7 +323,7 @@ class DoubleDQNAgent:
         self.epsilon = max(self.epsilon_end, self.epsilon * self.epsilon_decay)
 
         self.losses.append(loss.item())
-        return loss.item()
+        return loss.item(), violation_stats
 
     def save(self, path: str):
         """Save model weights."""

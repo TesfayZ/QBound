@@ -11,7 +11,7 @@ A comprehensive implementation and evaluation of **QBound**, a technique for bou
 
 **QBound: Principled Value Bounding for Deep Q-Learning**
 
-The paper demonstrates that **soft QBound** (penalty-based) successfully:
+The paper demonstrates that **soft QBound** (differentiable soft clipping) successfully:
 - Replaces target networks in DDPG (+712% improvement)
 - Enhances standard DDPG (+5% improvement)
 - Works across DQN, DDQN, Dueling DQN architectures
@@ -23,7 +23,7 @@ The paper demonstrates that **soft QBound** (penalty-based) successfully:
 
 ## 🎯 Key Features
 
-- **Soft QBound**: Penalty-based approach preserving gradients for continuous control
+- **Soft QBound**: Differentiable soft clipping preserving gradients for continuous control
 - **Hard QBound**: Direct clipping for discrete action spaces
 - **Dynamic Bounds**: Step-aware bounds for dense positive rewards
 - **Comprehensive Evaluation**: 7 environments, 4 algorithm families
@@ -156,7 +156,7 @@ QBound/
 │   ├── td3_agent.py             # TD3 with Soft QBound
 │   ├── ppo_agent.py             # PPO baseline
 │   ├── ppo_qbound_agent.py      # PPO with Soft QBound
-│   ├── soft_qbound_penalty.py   # Soft QBound penalty functions
+│   ├── soft_qbound_penalty.py   # Soft QBound clipping functions
 │   └── environment.py           # Custom GridWorld
 │
 ├── experiments/                  # Experiment scripts
@@ -245,11 +245,9 @@ agent = DDPGAgent(
     action_dim=1,
     max_action=2.0,
     use_qbound=True,
-    use_soft_qbound=True,      # Enable soft penalty
+    use_soft_clip=True,        # Enable soft clipping (differentiable bounds)
     qbound_min=-1616.0,
     qbound_max=0.0,
-    qbound_penalty_weight=0.1,  # Penalty weight λ
-    qbound_penalty_type='quadratic',
     device='cpu'
 )
 
@@ -264,7 +262,7 @@ for episode in range(num_episodes):
         agent.replay_buffer.push(state, action, reward, next_state, done)
 
         if len(agent.replay_buffer) > batch_size:
-            # Returns (critic_loss, actor_loss, penalty)
+            # Returns (critic_loss, actor_loss)
             losses = agent.train(batch_size)
 
         state = next_state
@@ -330,10 +328,10 @@ agent = DQNAgent(
 - ✅ Reason: Policy is ε-greedy, no action gradients needed
 - ✅ Implementation: `Q_target = r + γ · clip(Q(s',a'), Q_min, Q_max)`
 
-**Soft QBound (Penalty-Based)**
+**Soft QBound (Differentiable Clipping)**
 - ✅ Use for: Continuous action spaces (DDPG, TD3, PPO)
 - ✅ Reason: Policy learning requires gradient flow through Q-values
-- ✅ Implementation: `L = L_TD + λ · [max(0, Q-Q_max)² + max(0, Q_min-Q)²]`
+- ✅ Implementation: `Q_clipped = softplus_clip(Q, Q_min, Q_max, β)` (smooth, differentiable bounds)
 
 ### When to Use Static vs Dynamic Bounds
 
@@ -423,25 +421,30 @@ python analysis/analyze_all_6way_results.py
 
 ## 🔬 Implementation Details
 
-### Soft QBound Penalty Functions
+### Soft QBound Clipping Mechanism
 
-The `soft_qbound_penalty.py` module provides:
+The `soft_qbound_penalty.py` module provides **differentiable soft clipping** using softplus:
 
 ```python
-# Quadratic penalty (used in paper)
-penalty = max(0, Q - Q_max)² + max(0, Q_min - Q)²
+def softplus_clip(q_values, q_min, q_max, beta=1.0):
+    """
+    Smooth clipping using softplus (differentiable approximation of ReLU).
+    Q-values approach bounds asymptotically while maintaining non-zero gradients.
+    """
+    # Soft lower bound: q_clipped >= q_min
+    q_shifted = q_values - q_min
+    q_lower = q_min + F.softplus(q_shifted, beta=beta)
 
-# Huber penalty (robust to outliers)
-penalty = huber_loss(Q - Q_max) + huber_loss(Q_min - Q)
+    # Soft upper bound: q_clipped <= q_max
+    q_shifted = q_max - q_lower
+    q_clipped = q_max - F.softplus(q_shifted, beta=beta)
 
-# Exponential penalty (very smooth)
-penalty = (exp(α·(Q - Q_max)) - 1) / α
-
-# Log barrier (interior-point method)
-penalty = -log((Q_max - Q) / margin)
+    return q_clipped
 ```
 
-All experiments use **quadratic penalty** with λ = 0.1.
+**Key Parameters:**
+- `beta`: Steepness parameter (default=1.0, higher values → closer to hard clipping)
+- No penalty weight λ - the clipped values are used directly
 
 ### Gradient Flow Verification
 
@@ -450,9 +453,9 @@ All experiments use **quadratic penalty** with λ = 0.1.
 Q_clipped = torch.clamp(Q, Q_min, Q_max)
 # ∂Q_clipped/∂a = 0 when Q violates bounds ❌
 
-# Soft penalty (GOOD for continuous control)
-penalty = (Q - Q_max)**2
-# ∂penalty/∂a = 2(Q - Q_max) · ∂Q/∂a ≠ 0 ✅
+# Soft clipping (GOOD for continuous control)
+Q_clipped = softplus_clip(Q, Q_min, Q_max, beta=1.0)
+# ∂Q_clipped/∂a ≠ 0 even when Q violates bounds ✅
 ```
 
 ---
