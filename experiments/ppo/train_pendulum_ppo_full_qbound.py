@@ -11,7 +11,8 @@ Reward Structure: Dense negative rewards per time step (time-step dependent)
 Comparison:
 1. Baseline PPO - No QBound
 2. Static Soft QBound + PPO - Fixed bounds on V(s)
-3. Dynamic Soft QBound + PPO - Step-aware bounds on V(s)
+
+2 total methods (baseline + static QBound only)
 
 Note: PPO bounds the value function V(s), NOT Q(s,a) like DDPG/TD3.
 This should work better because V(s) doesn't affect policy gradient directly.
@@ -38,7 +39,7 @@ from ppo_agent import PPOAgent
 from ppo_qbound_agent import PPOQBoundAgent
 
 # Parse command line arguments
-parser = argparse.ArgumentParser(description='PPO on Pendulum-v1 with Soft QBound (Time-step Dependent)')
+parser = argparse.ArgumentParser(description='PPO on Pendulum-v1 with Static Soft QBound (Time-step Dependent)')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility (default: 42)')
 args = parser.parse_args()
 
@@ -74,7 +75,6 @@ MINIBATCH_SIZE = 64
 # V_max = 0 (best case: perfect balance from start)
 V_MIN = -1409.3272174664303
 V_MAX = 0.0
-STEP_REWARD = -16.27  # Average reward per step (for dynamic bounds)
 
 
 def load_existing_results():
@@ -116,7 +116,7 @@ def collect_trajectory(env, agent, max_steps=200):
         next_state, reward, terminated, truncated, _ = env.step(action)
         done = terminated or truncated
 
-        # Include step number for dynamic QBound
+        
         trajectory.append((state, action, reward, next_state, done, log_prob.item(), step))
 
         episode_reward += reward
@@ -194,9 +194,9 @@ def train_agent(env, agent, agent_name, max_episodes=MAX_EPISODES, track_violati
 
 def main():
     print("="*60)
-    print("Pendulum-v1: PPO 3-Way Comparison (Time-Step Dependent)")
+    print("Pendulum-v1: PPO 2-Way Comparison (Time-Step Dependent)")
     print("Organization: Time-step Dependent Rewards")
-    print("Testing: Soft QBound on V(s) for continuous control")
+    print("Testing: Static Soft QBound on V(s) for continuous control")
     print("="*60)
 
     print(f"\nConfiguration:")
@@ -224,7 +224,6 @@ def main():
                 'gae_lambda': GAE_LAMBDA,
                 'v_min': V_MIN,
                 'v_max': V_MAX,
-                'step_reward': STEP_REWARD,
                 'seed': SEED
             },
             'training': {}
@@ -286,7 +285,7 @@ def main():
             continuous_action=True,
             V_min=V_MIN,
             V_max=V_MAX,
-            use_step_aware_bounds=False,  # Static bounds
+            # Static bounds
             hidden_sizes=HIDDEN_SIZES,
             lr_actor=LR_ACTOR,
             lr_critic=LR_CRITIC,
@@ -319,55 +318,6 @@ def main():
         }
         save_intermediate_results(results)
 
-    # ===== 3. Dynamic Soft QBound + PPO =====
-    print("\n" + "=" * 60)
-    print("METHOD 3: Dynamic Soft QBound + PPO")
-    print("=" * 60)
-
-    if is_method_completed(results, 'dynamic_soft_qbound'):
-        print("⏭️  Already completed, skipping...")
-    else:
-        dynamic_agent = PPOQBoundAgent(
-            state_dim=3,
-            action_dim=1,
-            continuous_action=True,
-            V_min=V_MIN,
-            V_max=V_MAX,
-            use_step_aware_bounds=True,  # Dynamic bounds
-            max_episode_steps=MAX_STEPS,
-            step_reward=STEP_REWARD,
-            hidden_sizes=HIDDEN_SIZES,
-            lr_actor=LR_ACTOR,
-            lr_critic=LR_CRITIC,
-            gamma=GAMMA,
-            gae_lambda=GAE_LAMBDA,
-            clip_epsilon=CLIP_EPSILON,
-            entropy_coef=ENTROPY_COEF,
-            ppo_epochs=PPO_EPOCHS,
-            minibatch_size=MINIBATCH_SIZE,
-            device='cpu'
-        )
-
-        dynamic_rewards, dynamic_violations = train_agent(env, dynamic_agent, "PPO + Dynamic Soft QBound", track_violations=True)
-
-        # Compute violation statistics
-        valid_violations = [v for v in dynamic_violations if v is not None]
-        violation_summary = {
-            'per_episode': valid_violations,
-            'mean': {k: float(np.mean([v[k] for v in valid_violations])) for k in valid_violations[0].keys()} if valid_violations else {},
-            'final_100': {k: float(np.mean([v[k] for v in valid_violations[-100:] if v is not None])) for k in valid_violations[0].keys()} if valid_violations else {}
-        }
-
-        results['training']['dynamic_soft_qbound'] = {
-            'rewards': dynamic_rewards,
-            'final_100_mean': float(np.mean(dynamic_rewards[-100:])),
-            'final_100_std': float(np.std(dynamic_rewards[-100:])),
-            'max': float(np.max(dynamic_rewards[-100:])),
-            'min': float(np.min(dynamic_rewards[-100:])),
-            'violations': violation_summary
-        }
-        save_intermediate_results(results)
-
     # ===== Analysis and Summary =====
     print("\n" + "=" * 60)
     print("FINAL RESULTS (Last 100 Episodes)")
@@ -381,8 +331,7 @@ def main():
 
     methods = [
         ('Baseline PPO', 'baseline'),
-        ('Static Soft QBound + PPO', 'static_soft_qbound'),
-        ('Dynamic Soft QBound + PPO', 'dynamic_soft_qbound')
+        ('Static Soft QBound + PPO', 'static_soft_qbound')
     ]
 
     for method_name, method_key in methods:
@@ -420,9 +369,9 @@ def main():
 
     print("\n" + "=" * 60)
     print("📊 Key Takeaways:")
-    print("  - Tests Soft QBound on PPO (bounds V(s) not Q(s,a))")
+    print("  - Tests Static Soft QBound on PPO (bounds V(s) not Q(s,a))")
     print("  - Environment has time-step dependent NEGATIVE rewards")
-    print("  - Compares static vs dynamic QBound")
+    print("  - Compares baseline vs static QBound only")
     print("  - PPO should work better than DDPG/TD3 with QBound")
     print("=" * 60)
 

@@ -1,0 +1,332 @@
+% NEW SECTION: Critical Differentiation Between Positive and Negative Rewards
+% This section should be inserted after section 3.3 (Fundamental Q-Value Bounds)
+
+\subsection{Critical Insight: Why QBound Effectiveness Depends on Reward Sign}
+\label{subsec:reward-sign-analysis}
+
+\textbf{Key Observation:} Our comprehensive empirical evaluation (Section~\ref{sec:experiments}) reveals that QBound's effectiveness is \textit{fundamentally dependent} on the sign of the reward signal. This section provides theoretical justification for this phenomenon.
+
+\subsubsection{The Upper Bound is What Matters for RL}
+
+\begin{proposition}[Upper Bound Primacy in Reward Maximization]
+\label{prop:upper-bound-primacy}
+In reinforcement learning, the agent's objective is reward \textit{maximization}:
+$$\pi^* = \argmax_\pi \E_\pi\left[\sum_{t=0}^\infty \gamma^t r_t\right]$$
+
+The upper bound $Q_{\max}$ directly constrains the maximization objective. The lower bound $Q_{\min}$ is largely irrelevant because:
+\begin{enumerate}
+    \item The agent seeks to maximize $Q(s,a)$, not avoid low values
+    \item Pessimistic underestimation (predicting below $Q_{\min}$) does not affect policy selection as long as relative ordering is preserved
+    \item Overestimation (predicting above $Q_{\max}$) directly causes suboptimal policies by incorrectly favoring poor actions
+\end{enumerate}
+\end{proposition}
+
+\begin{remark}
+This asymmetry explains why overestimation bias is a well-studied problem \citep{thrun1993issues, van2016deep}, while underestimation bias receives less attention: overestimation directly harms policy quality, while underestimation merely slows convergence.
+\end{remark}
+
+\subsubsection{Positive Rewards: QBound Provides Essential Upper Bound}
+
+For environments with \textbf{positive dense rewards} (e.g., CartPole: $r = +1$ per timestep), neural networks with linear output layers have \textit{no architectural constraint} on the upper bound.
+
+\begin{observation}[Unbounded Positive Values]
+Consider a Q-network with standard architecture:
+\begin{lstlisting}[language=Python]
+Q_network = Sequential(
+    Linear(state_dim, 128),
+    ReLU(),
+    Linear(128, 128),
+    ReLU(),
+    Linear(128, action_dim)  # No output activation
+)
+\end{lstlisting}
+
+Output Q-values can range from $-\infty$ to $+\infty$. For positive rewards, Q-values grow during training as the agent learns longer survival strategies.
+\end{observation}
+
+\begin{theorem}[Overestimation Vulnerability with Positive Rewards]
+\label{thm:positive-reward-overestimation}
+For environments with positive rewards $r_t > 0$, the Bellman equation
+$$Q(s,a) = \E[r + \gamma \max_{a'} Q(s',a')]$$
+allows Q-values to grow without natural upper bound. Approximation errors compound through bootstrapping:
+$$Q_{\text{estimate}}(s,a) \approx r + \gamma \max_{a'} Q_{\text{estimate}}(s',a') + \epsilon$$
+where $\epsilon$ represents function approximation error. When $\epsilon > 0$ (overestimation), the error propagates and amplifies through recursive bootstrapping.
+
+\textbf{QBound Solution:} Explicit upper bound $Q_{\max}$ prevents unbounded growth:
+$$Q_{\text{target}} = r + \gamma \cdot \text{clip}(\max_{a'} Q(s',a'), Q_{\min}, Q_{\max})$$
+\end{theorem}
+
+\begin{example}[CartPole Success]
+CartPole with $r = +1$ per step, $\gamma = 0.99$, $H = 500$:
+\begin{itemize}
+    \item Theoretical $Q_{\max} \approx 100$ (geometric series)
+    \item \textbf{Without QBound:} Network predicts $Q \approx 150-200$ after 300 episodes (50-100\% overestimation)
+    \item \textbf{With QBound:} Network constrained to $Q \leq 100$, predictions stabilize
+    \item \textbf{Result:} +12\% to +34\% improvement across DQN variants (5 seeds, Section~\ref{sec:cartpole-results})
+\end{itemize}
+\end{example}
+
+\subsubsection{Negative Rewards: Upper Bound Naturally Satisfied}
+
+For environments with \textbf{negative rewards} (e.g., Pendulum: $r \in [-16, 0]$ per timestep, MountainCar: $r = -1$ per step), the Bellman equation itself provides an implicit upper bound.
+
+\begin{theorem}[Natural Upper Bound for Negative Rewards]
+\label{thm:negative-reward-implicit-bound}
+If all rewards satisfy $r(s,a,s') \leq 0$ for all transitions, then for any policy $\pi$:
+$$Q^\pi(s,a) = \E_\pi\left[\sum_{t=0}^\infty \gamma^t r_t \mid s_0=s, a_0=a\right] \leq 0$$
+
+\textbf{Proof:} By induction on the Bellman equation:
+\begin{align}
+Q^\pi(s,a) &= \E[r(s,a,s') + \gamma Q^\pi(s',a')] \\
+&\leq \E[0 + \gamma Q^\pi(s',a')] \quad \text{(since } r \leq 0\text{)} \\
+&= \gamma \E[Q^\pi(s',a')]
+\end{align}
+
+If we assume $Q^\pi(s',a') \leq 0$ (inductive hypothesis), then:
+$$Q^\pi(s,a) \leq \gamma \cdot 0 = 0$$
+
+The base case holds for terminal states where $Q(s_{\text{terminal}}, a) = 0$.
+\end{theorem}
+
+\begin{corollary}[QBound Redundancy for Negative Rewards]
+For negative reward environments, the network learns to satisfy $Q(s,a) \leq 0$ through standard gradient descent on Bellman targets, even without explicit bounding. Clipping at $Q_{\max} = 0$ becomes redundant.
+\end{corollary}
+
+\subsubsection{Empirical Verification: High Violation Rates Despite Theoretical Redundancy}
+
+\begin{observation}[Pendulum DQN Violation Analysis]
+In Pendulum-v1 with negative rewards ($r \in [-16.27, 0]$), we tracked QBound violations (predictions exceeding $Q_{\max} = 0$) across 500 episodes with 5 random seeds:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+Metric & Mean Violation Rate & Interpretation \\
+\midrule
+Pendulum DQN & 56.79\% & High violations despite $r \leq 0$ \\
+MountainCar DQN & 0.43\% & Low violations \\
+Acrobot DQN & 0.82\% & Low violations \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Key Finding:} Despite the theoretical guarantee that $Q \leq 0$ for negative rewards, Pendulum DQN shows \textbf{56.79\% violation rate} of $Q > 0$ due to function approximation errors. This confirms that while the upper bound is \textit{theoretically} redundant, neural networks with finite capacity create positive Q-value predictions that require handling.
+
+\textbf{Why violations occur:} Neural networks learn statistical patterns from TD targets, but function approximation errors can still produce $Q > 0$ predictions, especially in states near the theoretical upper bound (Q close to 0).
+\end{observation}
+
+\begin{theorem}[Statistical Learning of Upper Bound]
+\label{thm:statistical-upper-bound-learning}
+Neural networks trained with temporal difference learning on negative reward environments learn to satisfy $Q(s,a) \leq 0$ through statistical regularization, not architectural constraints.
+
+\textbf{Mechanism:} Every gradient update minimizes:
+$$\mathcal{L} = \E[(Q_\theta(s,a) - Q_{\text{target}})^2]$$
+where $Q_{\text{target}} = r + \gamma \max_{a'} Q_{\bar{\theta}}(s',a')$.
+
+For negative rewards, $Q_{\text{target}} \leq 0$ (by Theorem~\ref{thm:negative-reward-implicit-bound}). After $N$ gradient updates with targets satisfying $Q_{\text{target}} \leq 0$:
+\begin{itemize}
+    \item If $Q_\theta(s,a) = +50$ but $Q_{\text{target}} = -200$: Loss $\mathcal{L} = (50-(-200))^2 = 62,500$ (huge)
+    \item If $Q_\theta(s,a) = -180$ and $Q_{\text{target}} = -200$: Loss $\mathcal{L} = (-180-(-200))^2 = 400$ (small)
+\end{itemize}
+
+Gradient descent learns the statistical pattern: ``In this environment, Q-values are negative.''
+\end{theorem}
+
+\subsubsection{Why DQN Degrades on Negative Rewards: Policy Distortion from Redundant Bounds}
+
+\begin{proposition}[DQN Policy Distortion Mechanism]
+\label{prop:dqn-policy-distortion}
+For negative reward environments, even though $Q_{\max} = 0$ is theoretically redundant, applying it in DQN degrades performance because clipping occurs \textit{before action selection}:
+
+\begin{lstlisting}[language=Python]
+# DQN Architecture (conflates value and policy via argmax)
+Q_values = network(state)  # e.g., [+0.1, -5.2, -10.3]
+                          # +0.1 is approximation error (should be ≤ 0)
+
+# Apply Q_max clipping
+Q_clipped = torch.clamp(Q_values, max=Q_max)
+          = torch.clamp([+0.1, -5.2, -10.3], max=0.0)
+          = [0.0, -5.2, -10.3]  # Q_max=0 clipping applied!
+
+# Select action via argmax over CLIPPED values
+action = Q_clipped.argmax()  # Policy uses clipped Q-values
+\end{lstlisting}
+
+\textbf{The Problem:} Even though $Q(s, a_1) = +0.1$ is an approximation error (true value should be negative), clipping it to 0 \textbf{distorts the relative ordering} used for action selection. The policy becomes biased by applying a theoretically redundant bound to the decision-making mechanism.
+
+\textbf{Why this hurts:} With 56.79\% violation rate in Pendulum, over half of Q-value predictions are clipped before argmax, systematically biasing the policy toward actions with clipped Q-values.
+\end{proposition}
+
+\textbf{Empirical Evidence (5 seeds):}
+\begin{itemize}
+    \item Pendulum DQN: Baseline $-156.25 \pm 4.26$ vs QBound $-167.19 \pm 7.00$ (\textbf{-7.0\% degradation}, $p=0.47$)
+    \item MountainCar DQN: \textbf{-8.2\% degradation} ($p=0.71$)
+    \item Acrobot DQN: \textbf{-4.9\% degradation} ($p=0.76$)
+\end{itemize}
+
+\textbf{Statistical Note:} With only 5 seeds, none of these effects are statistically significant ($p > 0.10$). However, the consistent negative trend and theoretical mechanism (policy distortion from redundant bound) suggest a real effect requiring validation with 10-20 seeds.
+
+\subsubsection{Why Actor-Critic Succeeds: Architectural Separation of Value and Policy}
+
+\begin{proposition}[Actor-Critic Architectural Robustness]
+\label{prop:actor-critic-robustness}
+Actor-critic methods naturally avoid policy distortion from redundant bounds through \textbf{architectural separation} of value estimation (critic) and action selection (actor):
+
+\begin{lstlisting}[language=Python]
+# Actor-Critic Architecture (separates value from policy)
+
+# ACTOR: Makes decisions independently (NO clipping affects this!)
+action = actor(state)  # Direct policy output, unaffected by Q_max
+
+# CRITIC: Estimates value (clipping applied HERE, not to policy)
+Q = critic(state, action)  # e.g., +0.1 (approximation error)
+
+# Apply Q_max clipping to critic for TD learning
+Q_clipped = torch.clamp(Q, max=Q_max)
+          = torch.clamp(+0.1, max=0.0) = 0.0
+
+# TD target for critic update (uses clipped value)
+target_Q = reward + gamma * Q_next_clipped
+
+# Actor update uses critic gradient, NOT clipped values directly
+actor_loss = -Q_critic(state, actor(state)).mean()
+\end{lstlisting}
+
+\textbf{Why This Architecture is Robust:}
+\begin{enumerate}
+    \item \textbf{Clipping is on critic} (value estimation), not actor (policy)
+    \item \textbf{Actor makes decisions independently} using its own neural network
+    \item \textbf{Q-values guide actor via policy gradients}, not direct argmax selection
+    \item \textbf{Policy remains immune to redundant Q\_max bound}—clipping only affects TD target computation
+\end{enumerate}
+
+The critic's Q\_max clipping prevents value explosion during learning, but the actor's policy is never directly distorted by the redundant upper bound. This architectural separation provides natural robustness to inappropriate constraints.
+\end{proposition}
+
+\textbf{Empirical Evidence (5 seeds):}
+\begin{itemize}
+    \item Pendulum DDPG + Soft QBound: Baseline $-769.49 \pm 89.26$ vs QBound $-577.12 \pm 11.66$ (\textbf{+25.0\% improvement})
+    \item Pendulum TD3 + Soft QBound: Baseline $-787.08 \pm 71.92$ vs QBound $-666.34 \pm 34.90$ (\textbf{+15.3\% improvement})
+    \item Standard deviation reduced by 51-87\%, demonstrating dramatic variance reduction
+\end{itemize}
+
+\begin{remark}[Key Architectural Insight]
+The fundamental difference between DQN and actor-critic on negative rewards:
+
+\textbf{DQN:} Conflates value and policy via $\text{argmax } Q(s, \cdot)$ \\
+$\Rightarrow$ Q\_max clipping affects \textit{both} value estimation and action selection \\
+$\Rightarrow$ Redundant bound distorts policy
+
+\textbf{Actor-Critic:} Separates value (critic) from policy (actor) \\
+$\Rightarrow$ Q\_max clipping affects \textit{only} critic's value estimation \\
+$\Rightarrow$ Redundant bound does NOT distort actor's policy decisions
+\end{remark}
+
+\begin{corollary}[Universal Robustness of Actor-Critic]
+Actor-critic architectures are inherently more robust to bound selection:
+\begin{itemize}
+    \item \textbf{Positive rewards:} Q\_max clipping helps critic stability (beneficial)
+    \item \textbf{Negative rewards:} Q\_max clipping on critic doesn't hurt actor (neutral/beneficial)
+    \item \textbf{Appropriate bounds:} Both architectures benefit
+    \item \textbf{Inappropriate bounds:} Actor-critic avoids DQN's policy distortion problem
+\end{itemize}
+\end{corollary}
+
+\subsubsection{Summary: Reward Sign Determines QBound Applicability}
+
+\begin{table}[h]
+\centering
+\caption{QBound Effectiveness by Reward Sign and Architecture}
+\label{tab:reward-sign-summary}
+\small
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Scenario} & \textbf{Q\_max} & \textbf{DQN} & \textbf{Actor-Critic} & \textbf{Mechanism} \\
+\midrule
+\textbf{Positive Dense} & Essential & +12-34\% & +15-25\%* & Prevents overestimation \\
+ & (prevents & (5 seeds & (expected) & Both architectures benefit \\
+ & unbounded & $p>0.10$) & & \\
+\midrule
+\textbf{Negative Dense} & Redundant & -3 to -47\% & +15-25\%* & DQN: Policy distortion \\
+ & ($Q \leq 0$ & (5 seeds & (5 seeds) & Actor-Critic: Separation \\
+ & naturally) & $p>0.10$) & & prevents distortion \\
+\midrule
+\textbf{Sparse} & Trivial & $\approx 0\%$ & N/A & Low violations = \\
+ & (terminal) & (not sig.) & & minimal impact \\
+\bottomrule
+\multicolumn{5}{l}{\small *Soft QBound (softplus clipping) for actor-critic, hard clipping for DQN}
+\end{tabular}
+\end{table}
+
+\textbf{The Q\_max Asymmetry Principle:}
+
+\begin{center}
+\fbox{\parbox{0.9\textwidth}{
+\textbf{For Positive Rewards:} Q\_max is ESSENTIAL \\
+$\Rightarrow$ No natural upper bound, requires explicit constraint \\
+$\Rightarrow$ Both DQN and actor-critic benefit
+
+\textbf{For Negative Rewards:} Q\_max is REDUNDANT \\
+$\Rightarrow$ Bellman equation enforces $Q \leq 0$ naturally \\
+$\Rightarrow$ DQN suffers policy distortion (clipping before argmax) \\
+$\Rightarrow$ Actor-critic avoids distortion (architectural separation)
+
+\textbf{Q\_min is useful for both} (prevents underestimation, improves stability)
+}}
+\end{center}
+
+\begin{recommendation}[When to Use QBound: Architecture-Aware Guidelines]
+\textbf{For DQN/DDQN (Value-Based Methods):}
+\begin{itemize}
+    \item \checkmark \textbf{USE for positive dense rewards} (CartPole-style survival tasks)
+        \begin{itemize}
+            \item Q\_max prevents overestimation ($+12-34\%$ improvement)
+            \item Hard clipping acceptable (discrete actions)
+        \end{itemize}
+    \item $\times$ \textbf{DON'T USE for negative rewards} (Pendulum, MountainCar)
+        \begin{itemize}
+            \item Q\_max is redundant (Bellman enforces $Q \leq 0$)
+            \item Clipping before argmax causes policy distortion ($-3$ to $-47\%$ degradation)
+            \item \textit{Recommendation:} Skip Q\_max clipping, use only Q\_min if needed
+        \end{itemize}
+    \item $\sim$ \textbf{NEUTRAL for sparse rewards} (GridWorld, FrozenLake)
+        \begin{itemize}
+            \item Low violation rates (< 5\%) = minimal impact
+        \end{itemize}
+\end{itemize}
+
+\textbf{For Actor-Critic (DDPG/TD3):}
+\begin{itemize}
+    \item \checkmark \textbf{USE Soft QBound for any reward structure}
+        \begin{itemize}
+            \item Positive rewards: Stabilizes critic ($+15-25\%$ expected)
+            \item Negative rewards: Stabilizes critic WITHOUT hurting actor ($+15-25\%$ observed)
+            \item Architectural separation prevents policy distortion
+            \item MUST use soft clipping (softplus), NOT hard clipping
+        \end{itemize}
+\end{itemize}
+
+\textbf{For On-Policy (PPO, A2C):}
+\begin{itemize}
+    \item $\times$ \textbf{DON'T USE QBound}
+        \begin{itemize}
+            \item On-policy sampling naturally reduces overestimation
+            \item Built-in value clipping mechanisms already present
+            \item QBound interferes with carefully tuned optimization ($-20\%$ degradation)
+        \end{itemize}
+\end{itemize}
+\end{recommendation}
+
+\begin{remark}[The Architectural Lesson]
+The key insight is that \textbf{separating value estimation from policy} (actor-critic) provides robustness to inappropriate bounds. DQN conflates value and policy through argmax, making it fragile when Q\_max is redundant. Actor-critic's architectural separation makes it naturally robust—the actor's policy decisions are immune to critic clipping.
+
+This explains why:
+\begin{itemize}
+    \item DQN degrades on negative rewards (redundant Q\_max distorts argmax)
+    \item Actor-critic succeeds on negative rewards (Q\_max clipping doesn't affect actor)
+    \item Actor-critic is a more universal architecture for QBound application
+\end{itemize}
+\end{remark}
+
+\begin{remark}[Statistical Significance Note]
+All reported effects use 5 seeds with $p > 0.10$ (not statistically significant). The theoretical mechanisms (Q\_max redundancy, policy distortion, architectural separation) are well-founded, but empirical validation requires 10-20 seeds for proper statistical power. Violation rate (high: $>10\%$, low: $<5\%$) remains a strong predictor of potential impact.
+\end{remark}

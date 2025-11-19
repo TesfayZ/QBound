@@ -3,7 +3,11 @@
     "allow": [
       "Bash(git fsck:*)",
       "Bash(python3:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git log:*)",
+      "Bash(pdflatex:*)",
+      "Bash(bibtex:*)",
+      "Bash(pdfinfo:*)"
     ],
     "deny": [],
     "ask": []

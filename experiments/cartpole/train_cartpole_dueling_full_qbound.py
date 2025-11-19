@@ -1,5 +1,5 @@
 """
-CartPole-v1: Dueling DQN 6-Way Comparison - Time-Step Dependent Rewards
+CartPole-v1: Dueling DQN with Static QBound
 Organization: Time-step Dependent Rewards
 
 Validates that QBound generalizes to architecturally different DQN variants
@@ -9,16 +9,13 @@ Architecture: Dueling DQN with separate value V(s) and advantage A(s,a) streams
 Environment: CartPole-v1 (discrete actions, dense positive rewards per step)
 Reward Structure: +1 per time step (time-step dependent)
 
-Comparison:
+Methods Tested: 4 total
 1. Baseline Dueling DQN - No QBound, no Double-Q
 2. Static QBound + Dueling DQN - Q ∈ [0, 99.34]
-3. Dynamic QBound + Dueling DQN - Q ∈ [0, Q_max(t)] with step-aware bounds
-4. Baseline Double Dueling DQN - No QBound, with Double-Q
-5. Static QBound + Double Dueling DQN - Q ∈ [0, 99.34] + Double-Q
-6. Dynamic QBound + Double Dueling DQN - Q ∈ [0, Q_max(t)] + Double-Q
+3. Baseline Double Dueling DQN - No QBound, with Double-Q
+4. Static QBound + Double Dueling DQN - Q ∈ [0, 99.34] + Double-Q
 
 Purpose: Demonstrate QBound works with architecturally different networks (not just standard DQN)
-Note: CartPole has time-step dependent rewards, so dynamic QBound is applicable (Rule 3).
 """
 
 import sys
@@ -36,7 +33,7 @@ from dueling_dqn_agent import DuelingDQNAgent
 from tqdm import tqdm
 
 # Parse command line arguments
-parser = argparse.ArgumentParser(description='CartPole Dueling DQN 6-way comparison with QBound (Time-step Dependent)')
+parser = argparse.ArgumentParser(description='CartPole Dueling DQN 4-way comparison with static QBound')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility (default: 42)')
 args = parser.parse_args()
 
@@ -98,7 +95,7 @@ def is_method_completed(results, method_name):
     return method_name in results.get('training', {})
 
 
-def train_agent(env, agent, agent_name, max_episodes=MAX_EPISODES, use_step_aware=False, track_violations=False):
+def train_agent(env, agent, agent_name, max_episodes=MAX_EPISODES, track_violations=False):
     """Train agent and return results with optional violation tracking"""
     print(f"\n>>> Training {agent_name}...")
 
@@ -125,11 +122,8 @@ def train_agent(env, agent, agent_name, max_episodes=MAX_EPISODES, use_step_awar
             next_state, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
 
-            # Store transition (with step info if using step-aware bounds)
-            if use_step_aware:
-                agent.store_transition(state, action, reward, next_state, done, current_step=step)
-            else:
-                agent.store_transition(state, action, reward, next_state, done)
+            # Store transition
+            agent.store_transition(state, action, reward, next_state, done)
 
             # Train and collect violation stats
             loss, violations = agent.train_step()
@@ -178,7 +172,7 @@ def train_agent(env, agent, agent_name, max_episodes=MAX_EPISODES, use_step_awar
 
 def main():
     print("=" * 80)
-    print("CartPole-v1: Dueling DQN 6-Way Comparison (Time-Step Dependent)")
+    print("CartPole-v1: Dueling DQN 4-Way Comparison with Static QBound")
     print("Organization: Time-step Dependent Rewards")
     print("Validating QBound Generalization to Different Architectures")
     print("=" * 80)
@@ -220,13 +214,7 @@ def main():
                 'target_update_freq': TARGET_UPDATE_FREQ,
                 'qbound_min': QBOUND_MIN,
                 'qbound_max': QBOUND_MAX,
-                'seed': SEED,
-                # Dynamic QBound parameters (for methods that use them)
-                'dynamic_qbound_params': {
-                    'max_episode_steps': MAX_STEPS,
-                    'step_reward': 1.0,
-                    'reward_is_negative': False
-                }
+                'seed': SEED
             },
             'training': {}
         }
@@ -256,7 +244,7 @@ def main():
             use_qclip=False, use_double_dqn=False, device='cpu'
         )
         dueling_rewards, dueling_steps, _ = train_agent(env, dueling_dqn_agent, "1. Baseline Dueling DQN",
-                                                        use_step_aware=False, track_violations=False)
+                                                        track_violations=False)
         results['training']['dueling_dqn'] = {
             'rewards': dueling_rewards, 'steps': dueling_steps,
             'total_reward': float(np.sum(dueling_rewards)),
@@ -287,7 +275,7 @@ def main():
         )
         static_qbound_dueling_rewards, static_qbound_dueling_steps, static_violations = train_agent(
             env, static_qbound_dueling_agent, "2. Static QBound + Dueling DQN",
-            use_step_aware=False, track_violations=True)
+            track_violations=True)
 
         # Compute violation statistics
         valid_violations = [v for v in static_violations if v is not None]
@@ -309,51 +297,9 @@ def main():
         }
         save_intermediate_results(results)
 
-    # ===== 3. Dynamic QBound + Dueling DQN =====
+    # ===== 3. Double Dueling DQN =====
     print("\n" + "=" * 80)
-    print("METHOD 3: Dynamic QBound + Dueling DQN")
-    print("=" * 80)
-
-    if is_method_completed(results, 'dynamic_qbound_dueling_dqn'):
-        print("⏭️  Already completed, skipping...")
-    else:
-        dynamic_qbound_dueling_agent = DuelingDQNAgent(
-            state_dim=state_dim, action_dim=action_dim, learning_rate=LR,
-            gamma=GAMMA, epsilon_start=EPSILON_START, epsilon_end=EPSILON_END,
-            epsilon_decay=EPSILON_DECAY, buffer_size=BUFFER_SIZE,
-            batch_size=BATCH_SIZE, target_update_freq=TARGET_UPDATE_FREQ,
-            use_qclip=True, qclip_min=QBOUND_MIN, qclip_max=QBOUND_MAX,
-            use_step_aware_qbound=True, max_episode_steps=MAX_STEPS,
-            step_reward=1.0, reward_is_negative=False,
-            use_double_dqn=False, device='cpu'
-        )
-        dynamic_qbound_dueling_rewards, dynamic_qbound_dueling_steps, dynamic_violations = train_agent(
-            env, dynamic_qbound_dueling_agent, "3. Dynamic QBound + Dueling DQN",
-            use_step_aware=True, track_violations=True)
-
-        # Compute violation statistics
-        valid_violations = [v for v in dynamic_violations if v is not None]
-        violation_summary = {
-            'per_episode': valid_violations,
-            'mean': {k: float(np.mean([v[k] for v in valid_violations])) for k in valid_violations[0].keys()} if valid_violations else {},
-            'final_100': {k: float(np.mean([v[k] for v in valid_violations[-100:]])) for k in valid_violations[0].keys()} if valid_violations else {}
-        }
-
-        results['training']['dynamic_qbound_dueling_dqn'] = {
-            'rewards': dynamic_qbound_dueling_rewards, 'steps': dynamic_qbound_dueling_steps,
-            'total_reward': float(np.sum(dynamic_qbound_dueling_rewards)),
-            'mean_reward': float(np.mean(dynamic_qbound_dueling_rewards)),
-            'mean_steps': float(np.mean(dynamic_qbound_dueling_steps)),
-            'final_100_mean': float(np.mean(dynamic_qbound_dueling_rewards[-100:])),
-            'final_100_std': float(np.std(dynamic_qbound_dueling_rewards[-100:])),
-            'final_100_max': float(np.max(dynamic_qbound_dueling_rewards[-100:])),
-            'violations': violation_summary
-        }
-        save_intermediate_results(results)
-
-    # ===== 4. Double Dueling DQN =====
-    print("\n" + "=" * 80)
-    print("METHOD 4: Double Dueling DQN")
+    print("METHOD 3: Double Dueling DQN")
     print("=" * 80)
 
     if is_method_completed(results, 'double_dueling_dqn'):
@@ -367,8 +313,8 @@ def main():
             use_qclip=False, use_double_dqn=True, device='cpu'
         )
         double_dueling_rewards, double_dueling_steps, _ = train_agent(
-            env, double_dueling_agent, "4. Double Dueling DQN",
-            use_step_aware=False, track_violations=False)
+            env, double_dueling_agent, "3. Double Dueling DQN",
+            track_violations=False)
         results['training']['double_dueling_dqn'] = {
             'rewards': double_dueling_rewards, 'steps': double_dueling_steps,
             'total_reward': float(np.sum(double_dueling_rewards)),
@@ -381,9 +327,9 @@ def main():
         }
         save_intermediate_results(results)
 
-    # ===== 5. Static QBound + Double Dueling DQN =====
+    # ===== 4. Static QBound + Double Dueling DQN =====
     print("\n" + "=" * 80)
-    print("METHOD 5: Static QBound + Double Dueling DQN")
+    print("METHOD 4: Static QBound + Double Dueling DQN")
     print("=" * 80)
 
     if is_method_completed(results, 'static_qbound_double_dueling_dqn'):
@@ -398,8 +344,8 @@ def main():
             use_double_dqn=True, device='cpu'
         )
         static_qbound_double_dueling_rewards, static_qbound_double_dueling_steps, static_double_violations = train_agent(
-            env, static_qbound_double_dueling_agent, "5. Static QBound + Double Dueling DQN",
-            use_step_aware=False, track_violations=True)
+            env, static_qbound_double_dueling_agent, "4. Static QBound + Double Dueling DQN",
+            track_violations=True)
 
         # Compute violation statistics
         valid_violations = [v for v in static_double_violations if v is not None]
@@ -421,57 +367,15 @@ def main():
         }
         save_intermediate_results(results)
 
-    # ===== 6. Dynamic QBound + Double Dueling DQN =====
-    print("\n" + "=" * 80)
-    print("METHOD 6: Dynamic QBound + Double Dueling DQN")
-    print("=" * 80)
-
-    if is_method_completed(results, 'dynamic_qbound_double_dueling_dqn'):
-        print("⏭️  Already completed, skipping...")
-    else:
-        dynamic_qbound_double_dueling_agent = DuelingDQNAgent(
-            state_dim=state_dim, action_dim=action_dim, learning_rate=LR,
-            gamma=GAMMA, epsilon_start=EPSILON_START, epsilon_end=EPSILON_END,
-            epsilon_decay=EPSILON_DECAY, buffer_size=BUFFER_SIZE,
-            batch_size=BATCH_SIZE, target_update_freq=TARGET_UPDATE_FREQ,
-            use_qclip=True, qclip_min=QBOUND_MIN, qclip_max=QBOUND_MAX,
-            use_step_aware_qbound=True, max_episode_steps=MAX_STEPS,
-            step_reward=1.0, reward_is_negative=False,
-            use_double_dqn=True, device='cpu'
-        )
-        dynamic_qbound_double_dueling_rewards, dynamic_qbound_double_dueling_steps, dynamic_double_violations = train_agent(
-            env, dynamic_qbound_double_dueling_agent, "6. Dynamic QBound + Double Dueling DQN",
-            use_step_aware=True, track_violations=True)
-
-        # Compute violation statistics
-        valid_violations = [v for v in dynamic_double_violations if v is not None]
-        violation_summary = {
-            'per_episode': valid_violations,
-            'mean': {k: float(np.mean([v[k] for v in valid_violations])) for k in valid_violations[0].keys()} if valid_violations else {},
-            'final_100': {k: float(np.mean([v[k] for v in valid_violations[-100:]])) for k in valid_violations[0].keys()} if valid_violations else {}
-        }
-
-        results['training']['dynamic_qbound_double_dueling_dqn'] = {
-            'rewards': dynamic_qbound_double_dueling_rewards, 'steps': dynamic_qbound_double_dueling_steps,
-            'total_reward': float(np.sum(dynamic_qbound_double_dueling_rewards)),
-            'mean_reward': float(np.mean(dynamic_qbound_double_dueling_rewards)),
-            'mean_steps': float(np.mean(dynamic_qbound_double_dueling_steps)),
-            'final_100_mean': float(np.mean(dynamic_qbound_double_dueling_rewards[-100:])),
-            'final_100_std': float(np.std(dynamic_qbound_double_dueling_rewards[-100:])),
-            'final_100_max': float(np.max(dynamic_qbound_double_dueling_rewards[-100:])),
-            'violations': violation_summary
-        }
-        save_intermediate_results(results)
-
     # ===== Analysis and Summary =====
     print("\n" + "=" * 80)
     print("DUELING DQN RESULTS SUMMARY (Final 100 Episodes)")
     print("=" * 80)
 
-    methods = ['dueling_dqn', 'static_qbound_dueling_dqn', 'dynamic_qbound_dueling_dqn',
-               'double_dueling_dqn', 'static_qbound_double_dueling_dqn', 'dynamic_qbound_double_dueling_dqn']
-    labels = ['Baseline Dueling', 'Static QBound Dueling', 'Dynamic QBound Dueling',
-              'Double Dueling', 'Static QBound+Double', 'Dynamic QBound+Double']
+    methods = ['dueling_dqn', 'static_qbound_dueling_dqn',
+               'double_dueling_dqn', 'static_qbound_double_dueling_dqn']
+    labels = ['Baseline Dueling', 'Static QBound Dueling',
+              'Double Dueling', 'Static QBound+Double']
 
     print(f"\n{'Method':<30} {'Mean ± Std':<25} {'Max':<10} {'vs Baseline':<15}")
     print("-" * 80)
@@ -511,14 +415,13 @@ def main():
 
     print(f"\n✓ Results saved to: {final_output_file}")
     print("\n" + "=" * 80)
-    print("Dueling DQN 6-Way Comparison Complete!")
+    print("Dueling DQN 4-Way Comparison Complete!")
     print("=" * 80)
 
     print("\n📊 Key Takeaways:")
     print("  - If QBound improves Dueling DQN, it demonstrates architectural generalization")
     print("  - Compare to standard DQN results to assess relative performance")
     print("  - Look for similar improvement patterns as standard DQN experiments")
-    print("  - Dynamic QBound tests step-aware bounds on time-dependent rewards")
 
 
 if __name__ == '__main__':

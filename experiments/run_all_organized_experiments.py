@@ -2,21 +2,21 @@
 """
 Master Script: Run All Organized Experiments
 
-This script runs all experiments according to Option 1 organization:
-- Time-step dependent environments (Static + Dynamic QBound)
-- Sparse/State-dependent environments (Static QBound only)
+This script runs all experiments with baseline and static QBound only:
+- Time-step dependent environments (Baseline + Static QBound)
+- Sparse/State-dependent environments (Baseline + Static QBound)
 
 Organization Philosophy:
 ======================
 Time-step dependent: Rewards accumulate predictably with time steps
-  → Both static and dynamic QBound applicable
+  → Tests baseline vs static QBound
 
 Sparse/State-dependent: Rewards depend on state transitions, not time
-  → Only static QBound applicable (Rule 3)
+  → Tests baseline vs static QBound
 
-Total Scripts: 12 experiments
-- 6 time-step dependent (4 DQN scripts with 6 methods + 3 continuous with 2 methods)
-- 6 sparse/state-dependent (4 methods each: baseline, static × DQN/DDQN)
+Total Scripts: 10 experiments
+- 6 time-step dependent (3 DQN scripts with 4 methods each + 3 continuous with 2 methods each)
+- 4 sparse/state-dependent (4 methods each: baseline + static × DQN/DDQN)
 
 Usage:
 ------
@@ -66,46 +66,46 @@ from pathlib import Path
 # Experiment definitions
 TIME_STEP_DEPENDENT_EXPERIMENTS = [
     {
-        'name': 'CartPole DQN Full QBound',
+        'name': 'CartPole DQN Static QBound',
         'script': 'experiments/cartpole/train_cartpole_dqn_full_qbound.py',
-        'methods': 6,
+        'methods': 4,
         'est_time_min': 30,
-        'description': 'Dense positive reward (+1/step), tests DQN/DDQN with static/dynamic QBound'
+        'description': 'Dense positive reward (+1/step), tests DQN/DDQN with static QBound'
     },
     {
-        'name': 'CartPole Dueling DQN Full QBound',
+        'name': 'CartPole Dueling DQN Static QBound',
         'script': 'experiments/cartpole/train_cartpole_dueling_full_qbound.py',
-        'methods': 6,
+        'methods': 4,
         'est_time_min': 30,
-        'description': 'Architectural generalization test with Dueling DQN'
+        'description': 'Architectural generalization test with Dueling DQN and static QBound'
     },
     {
-        'name': 'Pendulum DQN Full QBound',
+        'name': 'Pendulum DQN Static QBound',
         'script': 'experiments/pendulum/train_pendulum_dqn_full_qbound.py',
-        'methods': 6,
+        'methods': 4,
         'est_time_min': 120,
-        'description': 'Dense negative reward (time-step dependent), discretized actions'
+        'description': 'Dense negative reward (time-step dependent), discretized actions with static QBound'
     },
     {
-        'name': 'Pendulum DDPG Full QBound',
+        'name': 'Pendulum DDPG Static QBound',
         'script': 'experiments/pendulum/train_pendulum_ddpg_full_qbound.py',
-        'methods': 3,
+        'methods': 2,
         'est_time_min': 90,
-        'description': 'Continuous control with DDPG (baseline + static + dynamic softplus_clip)'
+        'description': 'Continuous control with DDPG (baseline + static softplus_clip)'
     },
     {
-        'name': 'Pendulum PPO Full QBound',
+        'name': 'Pendulum PPO Static QBound',
         'script': 'experiments/ppo/train_pendulum_ppo_full_qbound.py',
-        'methods': 3,
+        'methods': 2,
         'est_time_min': 65,
-        'description': 'Continuous control with PPO (baseline + static + dynamic, hard clip returns only)'
+        'description': 'Continuous control with PPO (baseline + static QBound, hard clip returns only)'
     },
     {
-        'name': 'Pendulum TD3 Full QBound',
+        'name': 'Pendulum TD3 Static QBound',
         'script': 'experiments/pendulum/train_pendulum_td3_full_qbound.py',
-        'methods': 3,
+        'methods': 2,
         'est_time_min': 90,
-        'description': 'Continuous control with TD3 (baseline + static + dynamic softplus_clip, twin critics)'
+        'description': 'Continuous control with TD3 (baseline + static softplus_clip, twin critics)'
     }
 ]
 

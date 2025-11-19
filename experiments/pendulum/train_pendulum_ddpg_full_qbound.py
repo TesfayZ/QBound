@@ -11,7 +11,6 @@ Reward Structure: Dense negative rewards per time step (time-step dependent)
 Comparison:
 1. Baseline DDPG - No QBound
 2. Static Soft QBound + DDPG - Fixed bounds via softplus_clip
-3. Dynamic Soft QBound + DDPG - Step-aware bounds via softplus_clip
 
 Note: ONLY uses Soft QBound (softplus_clip) because DDPG requires
 smooth gradients for actor-critic learning. Hard clipping breaks the
@@ -36,7 +35,7 @@ from ddpg_agent import DDPGAgent
 from tqdm import tqdm
 
 # Parse command line arguments
-parser = argparse.ArgumentParser(description='DDPG on Pendulum-v1 with Soft QBound (Time-step Dependent)')
+parser = argparse.ArgumentParser(description='DDPG on Pendulum-v1 with Static Soft QBound')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility (default: 42)')
 args = parser.parse_args()
 
@@ -70,7 +69,6 @@ WARMUP_EPISODES = 10
 # With gamma=0.99, H=200: Q_min = -16.27 * 86.60 = -1409.33
 QBOUND_MIN = -1409.3272174664303
 QBOUND_MAX = 0.0
-STEP_REWARD = -16.27  # Average reward per step (for dynamic bounds)
 
 
 def load_existing_results():
@@ -100,7 +98,7 @@ def is_method_completed(results, method_name):
     return method_name in results.get('training', {})
 
 
-def train_agent(env, agent, agent_name, max_episodes=MAX_EPISODES, use_step_aware=False, track_violations=False):
+def train_agent(env, agent, agent_name, max_episodes=MAX_EPISODES, track_violations=False):
     """Train agent and return results with optional violation tracking"""
     print(f"\n>>> Training {agent_name}...")
 
@@ -128,13 +126,13 @@ def train_agent(env, agent, agent_name, max_episodes=MAX_EPISODES, use_step_awar
             next_state, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
 
-            # Store transition WITH TIME STEP (for dynamic QBound)
+            # Store transition with time step
             agent.replay_buffer.push(state, action, reward, next_state, done, step)
 
             # Train if enough samples and collect violation stats
             if episode >= WARMUP_EPISODES:
-                # Pass current step for dynamic QBound
-                current_step = step if use_step_aware else None
+                
+                current_step = None
                 critic_loss, actor_loss, violations = agent.train(batch_size=BATCH_SIZE, current_step=current_step)
 
                 if track_violations and violations is not None:
@@ -178,7 +176,7 @@ def train_agent(env, agent, agent_name, max_episodes=MAX_EPISODES, use_step_awar
 
 def main():
     print("=" * 80)
-    print("Pendulum-v1: DDPG 3-Way Comparison (Time-Step Dependent)")
+    print("Pendulum-v1: DDPG 2-Way Comparison (Static QBound)")
     print("Organization: Time-step Dependent Rewards")
     print("Testing: Soft QBound (softplus_clip) on continuous control")
     print("=" * 80)
@@ -215,7 +213,6 @@ def main():
                 'warmup_episodes': WARMUP_EPISODES,
                 'qbound_min': QBOUND_MIN,
                 'qbound_max': QBOUND_MAX,
-                'step_reward': STEP_REWARD,
                 'seed': SEED,
                 # Soft QBound parameters
                 'soft_qbound_params': {
@@ -257,7 +254,7 @@ def main():
         )
 
         baseline_rewards, _ = train_agent(env, baseline_agent, "1. Baseline DDPG",
-                                          use_step_aware=False, track_violations=False)
+                                          track_violations=False)
         results['training']['baseline'] = {
             'rewards': baseline_rewards,
             'total_reward': float(np.sum(baseline_rewards)),
@@ -289,12 +286,12 @@ def main():
             qbound_max=QBOUND_MAX,
             use_soft_clip=True,  # CRITICAL: Use soft clipping for continuous control
             soft_clip_beta=0.1,
-            use_step_aware_qbound=False,  # Static bounds
+            # Static bounds
             device='cpu'
         )
 
         static_rewards, static_violations = train_agent(env, static_qbound_agent, "2. Static Soft QBound + DDPG",
-                                                        use_step_aware=False, track_violations=True)
+                                                        track_violations=True)
 
         # Compute violation statistics
         valid_violations = [v for v in static_violations if v is not None]
@@ -314,54 +311,6 @@ def main():
         }
         save_intermediate_results(results)
 
-    # ===== 3. Dynamic Soft QBound + DDPG =====
-    print("\n" + "=" * 80)
-    print("METHOD 3: Dynamic Soft QBound + DDPG")
-    print("=" * 80)
-
-    if is_method_completed(results, 'dynamic_soft_qbound'):
-        print("⏭️  Already completed, skipping...")
-    else:
-        dynamic_qbound_agent = DDPGAgent(
-            state_dim=state_dim,
-            action_dim=action_dim,
-            max_action=max_action,
-            lr_actor=LR_ACTOR,
-            lr_critic=LR_CRITIC,
-            gamma=GAMMA,
-            tau=TAU,
-            use_qbound=True,
-            qbound_min=QBOUND_MIN,
-            qbound_max=QBOUND_MAX,
-            use_soft_clip=True,  # CRITICAL: Use soft clipping for continuous control
-            soft_clip_beta=0.1,
-            use_step_aware_qbound=True,  # Dynamic bounds
-            max_episode_steps=MAX_STEPS,
-            step_reward=STEP_REWARD,
-            device='cpu'
-        )
-
-        dynamic_rewards, dynamic_violations = train_agent(env, dynamic_qbound_agent, "3. Dynamic Soft QBound + DDPG",
-                                                          use_step_aware=True, track_violations=True)
-
-        # Compute violation statistics
-        valid_violations = [v for v in dynamic_violations if v is not None]
-        violation_summary = {
-            'per_episode': valid_violations,
-            'mean': {k: float(np.mean([v[k] for v in valid_violations])) for k in valid_violations[0].keys()} if valid_violations else {},
-            'final_100': {k: float(np.mean([v[k] for v in valid_violations[-100:]])) for k in valid_violations[0].keys()} if valid_violations else {}
-        }
-
-        results['training']['dynamic_soft_qbound'] = {
-            'rewards': dynamic_rewards,
-            'total_reward': float(np.sum(dynamic_rewards)),
-            'mean_reward': float(np.mean(dynamic_rewards)),
-            'final_100_mean': float(np.mean(dynamic_rewards[-100:])),
-            'final_100_std': float(np.std(dynamic_rewards[-100:])),
-            'violations': violation_summary
-        }
-        save_intermediate_results(results)
-
     # ===== Analysis and Summary =====
     print("\n" + "=" * 80)
     print("DDPG RESULTS SUMMARY (Final 100 Episodes)")
@@ -375,8 +324,7 @@ def main():
 
     methods = [
         ('Baseline DDPG', 'baseline'),
-        ('Static Soft QBound + DDPG', 'static_soft_qbound'),
-        ('Dynamic Soft QBound + DDPG', 'dynamic_soft_qbound')
+        ('Static Soft QBound + DDPG', 'static_soft_qbound')
     ]
 
     for method_name, method_key in methods:
@@ -404,12 +352,12 @@ def main():
         os.remove(RESULTS_FILE)
 
     print("\n" + "=" * 80)
-    print("Pendulum DDPG 3-Way Comparison Complete!")
+    print("Pendulum DDPG 2-Way Comparison Complete!")
     print("=" * 80)
     print()
     print("📊 Key Takeaways:")
     print("  - Tests Soft QBound (softplus_clip) on time-step dependent NEGATIVE rewards")
-    print("  - Compares static vs dynamic QBound for continuous control")
+    print("  - Static QBound provides fixed bounds for continuous control")
     print("  - Soft clipping preserves gradients needed for policy optimization")
 
 

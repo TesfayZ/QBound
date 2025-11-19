@@ -1,5 +1,5 @@
 {
-  "session_start": "2025-10-30T09:56:28.362221",
+  "session_start": "2025-11-16T19:53:42.597560",
   "seeds": [
     42,
     43,
@@ -12,119 +12,45 @@
   "seed_results": {
     "42": {
       "seed": 42,
-      "start_time": "2025-10-30T09:56:28.362258",
+      "start_time": "2025-11-16T19:53:42.597634",
       "experiments": [
         {
-          "name": "CartPole DQN Full QBound",
+          "name": "CartPole DQN Static QBound",
           "script": "experiments/cartpole/train_cartpole_dqn_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 30,
-          "result": {
-            "status": "skipped",
-            "reason": "already_completed"
-          }
-        },
-        {
-          "name": "CartPole Dueling DQN Full QBound",
-          "script": "experiments/cartpole/train_cartpole_dueling_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 30,
-          "result": {
-            "status": "skipped",
-            "reason": "already_completed"
-          }
-        },
-        {
-          "name": "CartPole DQN Full QBound",
-          "script": "experiments/cartpole/train_cartpole_dqn_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 30,
-          "result": {
-            "status": "skipped",
-            "reason": "already_completed"
-          }
-        },
-        {
-          "name": "CartPole Dueling DQN Full QBound",
-          "script": "experiments/cartpole/train_cartpole_dueling_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 30,
-          "result": {
-            "status": "skipped",
-            "reason": "already_completed"
-          }
-        },
-        {
-          "name": "CartPole DQN Full QBound",
-          "script": "experiments/cartpole/train_cartpole_dqn_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 30,
-          "result": {
-            "status": "skipped",
-            "reason": "already_completed"
-          }
-        },
-        {
-          "name": "CartPole Dueling DQN Full QBound",
-          "script": "experiments/cartpole/train_cartpole_dueling_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 30,
-          "result": {
-            "status": "skipped",
-            "reason": "already_completed"
-          }
-        },
-        {
-          "name": "GridWorld DQN Static QBound",
-          "script": "experiments/gridworld/train_gridworld_dqn_static_qbound.py",
           "methods": 4,
-          "estimated_time_min": 15,
+          "estimated_time_min": 30,
           "result": {
             "status": "success",
-            "duration_min": 11.707678399999999,
-            "start_time": "2025-10-31T09:55:49.549892",
-            "end_time": "2025-10-31T10:07:32.010596"
+            "duration_min": 50.92660408333334,
+            "start_time": "2025-11-16T19:53:42.599023",
+            "end_time": "2025-11-16T20:44:38.195268"
           }
         },
         {
-          "name": "FrozenLake DQN Static QBound",
-          "script": "experiments/frozenlake/train_frozenlake_dqn_static_qbound.py",
-          "methods": 4,
-          "estimated_time_min": 20,
-          "result": {
-            "status": "success",
-            "duration_min": 33.90631178333334,
-            "start_time": "2025-10-31T10:07:32.016561",
-            "end_time": "2025-10-31T10:41:26.395268"
-          }
-        },
-        {
-          "name": "Acrobot DQN Static QBound",
-          "script": "experiments/acrobot/train_acrobot_dqn_static_qbound.py",
-          "methods": 4,
-          "estimated_time_min": 45,
-          "result": {
-            "status": "success",
-            "duration_min": 45.66372225,
-            "start_time": "2025-10-31T11:13:26.411836",
-            "end_time": "2025-10-31T11:59:06.235171"
-          }
-        },
-        {
-          "name": "CartPole DQN Full QBound",
-          "script": "experiments/cartpole/train_cartpole_dqn_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 30,
+          "name": "Pendulum DDPG Static QBound",
+          "script": "experiments/pendulum/train_pendulum_ddpg_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 90,
           "result": {
             "status": "skipped",
             "reason": "already_completed"
           }
         },
         {
-          "name": "CartPole Dueling DQN Full QBound",
-          "script": "experiments/cartpole/train_cartpole_dueling_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 30,
+          "name": "Pendulum PPO Static QBound",
+          "script": "experiments/ppo/train_pendulum_ppo_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 65,
+          "result": {
+            "status": "skipped",
+            "reason": "already_completed"
+          }
+        },
+        {
+          "name": "Pendulum TD3 Static QBound",
+          "script": "experiments/pendulum/train_pendulum_td3_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 90,
           "result": {
             "status": "skipped",
             "reason": "already_completed"
@@ -145,66 +71,6 @@
           "script": "experiments/frozenlake/train_frozenlake_dqn_static_qbound.py",
           "methods": 4,
           "estimated_time_min": 20,
-          "result": {
-            "status": "skipped",
-            "reason": "already_completed"
-          }
-        },
-        {
-          "name": "Acrobot DQN Static QBound",
-          "script": "experiments/acrobot/train_acrobot_dqn_static_qbound.py",
-          "methods": 4,
-          "estimated_time_min": 45,
-          "result": {
-            "status": "skipped",
-            "reason": "already_completed"
-          }
-        },
-        {
-          "name": "CartPole DQN Full QBound",
-          "script": "experiments/cartpole/train_cartpole_dqn_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 30,
-          "result": {
-            "status": "skipped",
-            "reason": "already_completed"
-          }
-        },
-        {
-          "name": "CartPole Dueling DQN Full QBound",
-          "script": "experiments/cartpole/train_cartpole_dueling_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 30,
-          "result": {
-            "status": "skipped",
-            "reason": "already_completed"
-          }
-        },
-        {
-          "name": "GridWorld DQN Static QBound",
-          "script": "experiments/gridworld/train_gridworld_dqn_static_qbound.py",
-          "methods": 4,
-          "estimated_time_min": 15,
-          "result": {
-            "status": "skipped",
-            "reason": "already_completed"
-          }
-        },
-        {
-          "name": "FrozenLake DQN Static QBound",
-          "script": "experiments/frozenlake/train_frozenlake_dqn_static_qbound.py",
-          "methods": 4,
-          "estimated_time_min": 20,
-          "result": {
-            "status": "skipped",
-            "reason": "already_completed"
-          }
-        },
-        {
-          "name": "Acrobot DQN Static QBound",
-          "script": "experiments/acrobot/train_acrobot_dqn_static_qbound.py",
-          "methods": 4,
-          "estimated_time_min": 45,
           "result": {
             "status": "skipped",
             "reason": "already_completed"
@@ -216,127 +82,110 @@
           "methods": 4,
           "estimated_time_min": 60,
           "result": {
-            "status": "success",
-            "duration_min": 42.184712350000005,
-            "start_time": "2025-11-02T12:31:41.331290",
-            "end_time": "2025-11-02T13:13:52.414031"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
-          "name": "Pendulum DQN Full QBound",
+          "name": "Acrobot DQN Static QBound",
+          "script": "experiments/acrobot/train_acrobot_dqn_static_qbound.py",
+          "methods": 4,
+          "estimated_time_min": 45,
+          "result": {
+            "status": "skipped",
+            "reason": "already_completed"
+          }
+        },
+        {
+          "name": "CartPole Dueling DQN Static QBound",
+          "script": "experiments/cartpole/train_cartpole_dueling_full_qbound.py",
+          "methods": 4,
+          "estimated_time_min": 30,
+          "result": {
+            "status": "success",
+            "duration_min": 136.78132390000002,
+            "start_time": "2025-11-17T06:18:01.784385",
+            "end_time": "2025-11-17T08:34:48.663819"
+          }
+        },
+        {
+          "name": "Pendulum DQN Static QBound",
           "script": "experiments/pendulum/train_pendulum_dqn_full_qbound.py",
-          "methods": 6,
+          "methods": 4,
           "estimated_time_min": 120,
           "result": {
-            "status": "failed",
-            "error_code": 120,
-            "duration_min": 9.496368649999999,
-            "start_time": "2025-11-12T06:45:00.304155",
-            "end_time": "2025-11-12T06:54:30.086274"
-          }
-        },
-        {
-          "name": "Pendulum DDPG Full QBound",
-          "script": "experiments/pendulum/train_pendulum_ddpg_full_qbound.py",
-          "methods": 3,
-          "estimated_time_min": 90,
-          "result": {
             "status": "success",
-            "duration_min": 266.92218106666667,
-            "start_time": "2025-11-12T06:54:30.232410",
-            "end_time": "2025-11-12T11:21:25.563274"
-          }
-        },
-        {
-          "name": "Pendulum PPO Full QBound",
-          "script": "experiments/ppo/train_pendulum_ppo_full_qbound.py",
-          "methods": 3,
-          "estimated_time_min": 65,
-          "result": {
-            "status": "success",
-            "duration_min": 10.857770683333333,
-            "start_time": "2025-11-12T12:50:51.370398",
-            "end_time": "2025-11-12T13:01:42.836639"
-          }
-        },
-        {
-          "name": "Pendulum TD3 Full QBound",
-          "script": "experiments/pendulum/train_pendulum_td3_full_qbound.py",
-          "methods": 3,
-          "estimated_time_min": 90,
-          "result": {
-            "status": "success",
-            "duration_min": 242.05614845,
-            "start_time": "2025-11-12T14:39:10.123102",
-            "end_time": "2025-11-12T18:41:13.492009"
+            "duration_min": 56.56504925,
+            "start_time": "2025-11-17T08:34:48.678905",
+            "end_time": "2025-11-17T09:31:22.581860"
           }
         }
       ],
-      "end_time": "2025-11-14T04:38:25.263625"
+      "end_time": "2025-11-19T12:39:17.575126"
     },
     "43": {
       "seed": 43,
-      "start_time": "2025-10-31T11:59:06.242167",
+      "start_time": "2025-11-16T20:44:38.864728",
       "experiments": [
         {
-          "name": "CartPole DQN Full QBound",
+          "name": "CartPole DQN Static QBound",
           "script": "experiments/cartpole/train_cartpole_dqn_full_qbound.py",
-          "methods": 6,
+          "methods": 4,
           "estimated_time_min": 30,
           "result": {
             "status": "success",
-            "duration_min": 93.42279838333334,
-            "start_time": "2025-10-31T11:59:06.248825",
-            "end_time": "2025-10-31T13:32:31.616728"
+            "duration_min": 88.71206596666666,
+            "start_time": "2025-11-16T20:44:38.865414",
+            "end_time": "2025-11-16T22:13:21.589372"
           }
         },
         {
-          "name": "CartPole Dueling DQN Full QBound",
+          "name": "CartPole Dueling DQN Static QBound",
           "script": "experiments/cartpole/train_cartpole_dueling_full_qbound.py",
-          "methods": 6,
+          "methods": 4,
           "estimated_time_min": 30,
           "result": {
             "status": "success",
-            "duration_min": 291.02024831666665,
-            "start_time": "2025-10-31T13:32:31.621512",
-            "end_time": "2025-10-31T18:23:32.836411"
+            "duration_min": 74.865738,
+            "start_time": "2025-11-17T12:28:38.859956",
+            "end_time": "2025-11-17T13:43:30.804236"
           }
         },
         {
-          "name": "CartPole DQN Full QBound",
-          "script": "experiments/cartpole/train_cartpole_dqn_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 30,
+          "name": "Pendulum DQN Static QBound",
+          "script": "experiments/pendulum/train_pendulum_dqn_full_qbound.py",
+          "methods": 4,
+          "estimated_time_min": 120,
           "result": {
             "status": "skipped",
             "reason": "already_completed"
           }
         },
         {
-          "name": "CartPole Dueling DQN Full QBound",
-          "script": "experiments/cartpole/train_cartpole_dueling_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 30,
+          "name": "Pendulum DDPG Static QBound",
+          "script": "experiments/pendulum/train_pendulum_ddpg_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 90,
           "result": {
             "status": "skipped",
             "reason": "already_completed"
           }
         },
         {
-          "name": "CartPole DQN Full QBound",
-          "script": "experiments/cartpole/train_cartpole_dqn_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 30,
+          "name": "Pendulum PPO Static QBound",
+          "script": "experiments/ppo/train_pendulum_ppo_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 65,
           "result": {
             "status": "skipped",
             "reason": "already_completed"
           }
         },
         {
-          "name": "CartPole Dueling DQN Full QBound",
-          "script": "experiments/cartpole/train_cartpole_dueling_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 30,
+          "name": "Pendulum TD3 Static QBound",
+          "script": "experiments/pendulum/train_pendulum_td3_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 90,
           "result": {
             "status": "skipped",
             "reason": "already_completed"
@@ -348,10 +197,8 @@
           "methods": 4,
           "estimated_time_min": 15,
           "result": {
-            "status": "success",
-            "duration_min": 11.940276416666668,
-            "start_time": "2025-11-03T14:10:57.469730",
-            "end_time": "2025-11-03T14:22:53.886315"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
@@ -360,10 +207,8 @@
           "methods": 4,
           "estimated_time_min": 20,
           "result": {
-            "status": "success",
-            "duration_min": 33.94109005,
-            "start_time": "2025-11-03T14:22:53.893706",
-            "end_time": "2025-11-03T14:56:50.359109"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
@@ -372,10 +217,8 @@
           "methods": 4,
           "estimated_time_min": 60,
           "result": {
-            "status": "success",
-            "duration_min": 38.574039383333336,
-            "start_time": "2025-11-03T14:56:50.362432",
-            "end_time": "2025-11-03T15:35:24.804795"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
@@ -384,89 +227,79 @@
           "methods": 4,
           "estimated_time_min": 45,
           "result": {
-            "status": "success",
-            "duration_min": 30.087389066666667,
-            "start_time": "2025-11-03T15:35:24.810350",
-            "end_time": "2025-11-03T16:05:30.053694"
-          }
-        },
-        {
-          "name": "Pendulum DQN Full QBound",
-          "script": "experiments/pendulum/train_pendulum_dqn_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 120,
-          "result": {
-            "status": "success",
-            "duration_min": 64.72738138333334,
-            "start_time": "2025-11-12T18:41:13.517485",
-            "end_time": "2025-11-12T19:45:57.160368"
-          }
-        },
-        {
-          "name": "Pendulum DDPG Full QBound",
-          "script": "experiments/pendulum/train_pendulum_ddpg_full_qbound.py",
-          "methods": 3,
-          "estimated_time_min": 90,
-          "result": {
-            "status": "success",
-            "duration_min": 74.89508395,
-            "start_time": "2025-11-13T00:26:27.882396",
-            "end_time": "2025-11-13T01:41:21.587433"
-          }
-        },
-        {
-          "name": "Pendulum PPO Full QBound",
-          "script": "experiments/ppo/train_pendulum_ppo_full_qbound.py",
-          "methods": 3,
-          "estimated_time_min": 65,
-          "result": {
-            "status": "success",
-            "duration_min": 9.913075483333333,
-            "start_time": "2025-11-13T01:41:21.592729",
-            "end_time": "2025-11-13T01:51:16.377258"
-          }
-        },
-        {
-          "name": "Pendulum TD3 Full QBound",
-          "script": "experiments/pendulum/train_pendulum_td3_full_qbound.py",
-          "methods": 3,
-          "estimated_time_min": 90,
-          "result": {
-            "status": "success",
-            "duration_min": 230.63714221666666,
-            "start_time": "2025-11-13T07:22:10.336496",
-            "end_time": "2025-11-13T11:12:48.565029"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         }
       ],
-      "end_time": "2025-11-14T04:38:25.266232"
+      "end_time": "2025-11-19T12:39:17.583713"
     },
     "44": {
       "seed": 44,
-      "start_time": "2025-11-03T17:38:42.210039",
+      "start_time": "2025-11-17T16:16:10.764796",
       "experiments": [
         {
-          "name": "CartPole DQN Full QBound",
+          "name": "CartPole DQN Static QBound",
           "script": "experiments/cartpole/train_cartpole_dqn_full_qbound.py",
-          "methods": 6,
+          "methods": 4,
           "estimated_time_min": 30,
           "result": {
             "status": "success",
-            "duration_min": 92.32446786666667,
-            "start_time": "2025-11-03T17:38:42.211899",
-            "end_time": "2025-11-03T19:11:01.679971"
+            "duration_min": 13.960027133333334,
+            "start_time": "2025-11-17T16:16:10.765619",
+            "end_time": "2025-11-17T16:30:08.367247"
           }
         },
         {
-          "name": "CartPole Dueling DQN Full QBound",
+          "name": "CartPole Dueling DQN Static QBound",
           "script": "experiments/cartpole/train_cartpole_dueling_full_qbound.py",
-          "methods": 6,
+          "methods": 4,
           "estimated_time_min": 30,
           "result": {
             "status": "success",
-            "duration_min": 215.79621976666667,
-            "start_time": "2025-11-03T19:11:01.683668",
-            "end_time": "2025-11-03T22:46:49.456854"
+            "duration_min": 169.0413747833333,
+            "start_time": "2025-11-17T16:30:08.371144",
+            "end_time": "2025-11-17T19:19:10.853631"
+          }
+        },
+        {
+          "name": "Pendulum DQN Static QBound",
+          "script": "experiments/pendulum/train_pendulum_dqn_full_qbound.py",
+          "methods": 4,
+          "estimated_time_min": 120,
+          "result": {
+            "status": "skipped",
+            "reason": "already_completed"
+          }
+        },
+        {
+          "name": "Pendulum DDPG Static QBound",
+          "script": "experiments/pendulum/train_pendulum_ddpg_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 90,
+          "result": {
+            "status": "skipped",
+            "reason": "already_completed"
+          }
+        },
+        {
+          "name": "Pendulum PPO Static QBound",
+          "script": "experiments/ppo/train_pendulum_ppo_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 65,
+          "result": {
+            "status": "skipped",
+            "reason": "already_completed"
+          }
+        },
+        {
+          "name": "Pendulum TD3 Static QBound",
+          "script": "experiments/pendulum/train_pendulum_td3_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 90,
+          "result": {
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
@@ -475,10 +308,8 @@
           "methods": 4,
           "estimated_time_min": 15,
           "result": {
-            "status": "success",
-            "duration_min": 14.0106434,
-            "start_time": "2025-11-05T20:22:45.509323",
-            "end_time": "2025-11-05T20:36:46.147927"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
@@ -487,10 +318,8 @@
           "methods": 4,
           "estimated_time_min": 20,
           "result": {
-            "status": "success",
-            "duration_min": 38.03632338333333,
-            "start_time": "2025-11-05T20:36:46.152687",
-            "end_time": "2025-11-05T21:14:48.332090"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
@@ -499,10 +328,8 @@
           "methods": 4,
           "estimated_time_min": 60,
           "result": {
-            "status": "success",
-            "duration_min": 40.7180173,
-            "start_time": "2025-11-05T21:14:48.338869",
-            "end_time": "2025-11-05T21:55:31.419907"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
@@ -511,89 +338,61 @@
           "methods": 4,
           "estimated_time_min": 45,
           "result": {
-            "status": "success",
-            "duration_min": 21.207056566666665,
-            "start_time": "2025-11-05T21:55:31.425513",
-            "end_time": "2025-11-05T22:16:43.848907"
-          }
-        },
-        {
-          "name": "Pendulum DQN Full QBound",
-          "script": "experiments/pendulum/train_pendulum_dqn_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 120,
-          "result": {
-            "status": "success",
-            "duration_min": 62.9932923,
-            "start_time": "2025-11-13T11:12:48.593314",
-            "end_time": "2025-11-13T12:15:48.190852"
-          }
-        },
-        {
-          "name": "Pendulum DDPG Full QBound",
-          "script": "experiments/pendulum/train_pendulum_ddpg_full_qbound.py",
-          "methods": 3,
-          "estimated_time_min": 90,
-          "result": {
-            "status": "success",
-            "duration_min": 223.8946885,
-            "start_time": "2025-11-13T13:21:00.171937",
-            "end_time": "2025-11-13T17:04:53.853247"
-          }
-        },
-        {
-          "name": "Pendulum PPO Full QBound",
-          "script": "experiments/ppo/train_pendulum_ppo_full_qbound.py",
-          "methods": 3,
-          "estimated_time_min": 65,
-          "result": {
-            "status": "success",
-            "duration_min": 9.9134312,
-            "start_time": "2025-11-13T17:04:53.872103",
-            "end_time": "2025-11-13T17:14:48.677975"
-          }
-        },
-        {
-          "name": "Pendulum TD3 Full QBound",
-          "script": "experiments/pendulum/train_pendulum_td3_full_qbound.py",
-          "methods": 3,
-          "estimated_time_min": 90,
-          "result": {
-            "status": "success",
-            "duration_min": 254.24387176666667,
-            "start_time": "2025-11-13T18:33:07.656940",
-            "end_time": "2025-11-13T22:47:22.289246"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         }
       ],
-      "end_time": "2025-11-14T04:38:25.268587"
+      "end_time": "2025-11-19T12:39:17.589897"
     },
     "45": {
       "seed": 45,
-      "start_time": "2025-11-05T22:16:43.854935",
+      "start_time": "2025-11-17T19:19:10.881056",
       "experiments": [
         {
-          "name": "CartPole DQN Full QBound",
+          "name": "CartPole DQN Static QBound",
           "script": "experiments/cartpole/train_cartpole_dqn_full_qbound.py",
-          "methods": 6,
+          "methods": 4,
           "estimated_time_min": 30,
           "result": {
             "status": "success",
-            "duration_min": 830.44010985,
-            "start_time": "2025-11-05T22:16:43.857797",
-            "end_time": "2025-11-06T12:07:10.264388"
+            "duration_min": 60.71224566666667,
+            "start_time": "2025-11-17T19:19:10.882290",
+            "end_time": "2025-11-17T20:19:53.617030"
           }
         },
         {
-          "name": "CartPole Dueling DQN Full QBound",
+          "name": "CartPole Dueling DQN Static QBound",
           "script": "experiments/cartpole/train_cartpole_dueling_full_qbound.py",
-          "methods": 6,
+          "methods": 4,
           "estimated_time_min": 30,
           "result": {
             "status": "success",
-            "duration_min": 350.8504463666667,
-            "start_time": "2025-11-06T12:07:10.294719",
-            "end_time": "2025-11-06T17:58:01.321501"
+            "duration_min": 127.78869796666666,
+            "start_time": "2025-11-17T23:07:23.287616",
+            "end_time": "2025-11-18T01:15:10.609494"
+          }
+        },
+        {
+          "name": "Pendulum DQN Static QBound",
+          "script": "experiments/pendulum/train_pendulum_dqn_full_qbound.py",
+          "methods": 4,
+          "estimated_time_min": 120,
+          "result": {
+            "status": "skipped",
+            "reason": "already_completed"
+          }
+        },
+        {
+          "name": "Pendulum DDPG Static QBound",
+          "script": "experiments/pendulum/train_pendulum_ddpg_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 90,
+          "result": {
+            "status": "success",
+            "duration_min": 0.06156375,
+            "start_time": "2025-11-18T01:15:10.614287",
+            "end_time": "2025-11-18T01:15:14.308112"
           }
         },
         {
@@ -602,10 +401,8 @@
           "methods": 4,
           "estimated_time_min": 15,
           "result": {
-            "status": "success",
-            "duration_min": 14.319858100000001,
-            "start_time": "2025-11-07T18:08:17.904541",
-            "end_time": "2025-11-07T18:22:37.096027"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
@@ -614,10 +411,8 @@
           "methods": 4,
           "estimated_time_min": 20,
           "result": {
-            "status": "success",
-            "duration_min": 36.98895268333333,
-            "start_time": "2025-11-07T18:22:37.101601",
-            "end_time": "2025-11-07T18:59:36.438762"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
@@ -626,10 +421,8 @@
           "methods": 4,
           "estimated_time_min": 60,
           "result": {
-            "status": "success",
-            "duration_min": 22.211658383333333,
-            "start_time": "2025-11-09T19:17:49.542504",
-            "end_time": "2025-11-09T19:40:02.242007"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
@@ -638,53 +431,87 @@
           "methods": 4,
           "estimated_time_min": 45,
           "result": {
-            "status": "success",
-            "duration_min": 41.208279850000004,
-            "start_time": "2025-11-09T19:40:02.245919",
-            "end_time": "2025-11-09T20:21:14.742710"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
-          "name": "Pendulum DQN Full QBound",
-          "script": "experiments/pendulum/train_pendulum_dqn_full_qbound.py",
-          "methods": 6,
-          "estimated_time_min": 120,
+          "name": "Pendulum PPO Static QBound",
+          "script": "experiments/ppo/train_pendulum_ppo_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 65,
           "result": {
             "status": "success",
-            "duration_min": 63.055547716666666,
-            "start_time": "2025-11-13T22:47:22.323485",
-            "end_time": "2025-11-13T23:50:25.656348"
+            "duration_min": 12.785287916666666,
+            "start_time": "2025-11-18T23:13:15.158293",
+            "end_time": "2025-11-18T23:26:02.275568"
+          }
+        },
+        {
+          "name": "Pendulum TD3 Static QBound",
+          "script": "experiments/pendulum/train_pendulum_td3_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 90,
+          "result": {
+            "status": "success",
+            "duration_min": 161.36589978333333,
+            "start_time": "2025-11-18T23:26:02.280661",
+            "end_time": "2025-11-19T02:07:24.234648"
           }
         }
       ],
-      "end_time": "2025-11-12T06:43:28.419069"
+      "end_time": "2025-11-19T12:39:17.596091"
     },
     "46": {
       "seed": 46,
-      "start_time": "2025-11-09T20:21:14.760282",
+      "start_time": "2025-11-18T03:50:32.794309",
       "experiments": [
         {
-          "name": "CartPole DQN Full QBound",
+          "name": "CartPole DQN Static QBound",
           "script": "experiments/cartpole/train_cartpole_dqn_full_qbound.py",
-          "methods": 6,
+          "methods": 4,
           "estimated_time_min": 30,
           "result": {
             "status": "success",
-            "duration_min": 104.37541981666666,
-            "start_time": "2025-11-09T20:21:14.774533",
-            "end_time": "2025-11-09T22:05:37.299722"
+            "duration_min": 55.92500515,
+            "start_time": "2025-11-18T03:50:32.795198",
+            "end_time": "2025-11-18T04:46:28.295507"
           }
         },
         {
-          "name": "CartPole Dueling DQN Full QBound",
+          "name": "CartPole Dueling DQN Static QBound",
           "script": "experiments/cartpole/train_cartpole_dueling_full_qbound.py",
-          "methods": 6,
+          "methods": 4,
           "estimated_time_min": 30,
           "result": {
             "status": "success",
-            "duration_min": 103.24038371666667,
-            "start_time": "2025-11-10T19:03:40.452253",
-            "end_time": "2025-11-10T20:46:54.875276"
+            "duration_min": 139.680553,
+            "start_time": "2025-11-18T11:13:57.126983",
+            "end_time": "2025-11-18T13:33:37.960163"
+          }
+        },
+        {
+          "name": "Pendulum DQN Static QBound",
+          "script": "experiments/pendulum/train_pendulum_dqn_full_qbound.py",
+          "methods": 4,
+          "estimated_time_min": 120,
+          "result": {
+            "status": "success",
+            "duration_min": 43.927436566666664,
+            "start_time": "2025-11-18T13:33:37.974518",
+            "end_time": "2025-11-18T14:17:33.620712"
+          }
+        },
+        {
+          "name": "Pendulum DDPG Static QBound",
+          "script": "experiments/pendulum/train_pendulum_ddpg_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 90,
+          "result": {
+            "status": "success",
+            "duration_min": 143.09703858333333,
+            "start_time": "2025-11-18T17:02:25.690281",
+            "end_time": "2025-11-18T19:25:31.512596"
           }
         },
         {
@@ -693,10 +520,8 @@
           "methods": 4,
           "estimated_time_min": 15,
           "result": {
-            "status": "success",
-            "duration_min": 14.755220900000001,
-            "start_time": "2025-11-12T00:33:43.095597",
-            "end_time": "2025-11-12T00:48:28.408851"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
@@ -705,10 +530,8 @@
           "methods": 4,
           "estimated_time_min": 20,
           "result": {
-            "status": "success",
-            "duration_min": 58.06926765,
-            "start_time": "2025-11-12T00:48:28.417793",
-            "end_time": "2025-11-12T01:46:32.573852"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
@@ -717,10 +540,8 @@
           "methods": 4,
           "estimated_time_min": 60,
           "result": {
-            "status": "success",
-            "duration_min": 28.650181966666665,
-            "start_time": "2025-11-12T03:51:22.725250",
-            "end_time": "2025-11-12T04:20:01.736168"
+            "status": "skipped",
+            "reason": "already_completed"
           }
         },
         {
@@ -729,16 +550,38 @@
           "methods": 4,
           "estimated_time_min": 45,
           "result": {
+            "status": "skipped",
+            "reason": "already_completed"
+          }
+        },
+        {
+          "name": "Pendulum PPO Static QBound",
+          "script": "experiments/ppo/train_pendulum_ppo_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 65,
+          "result": {
             "status": "success",
-            "duration_min": 20.402686983333336,
-            "start_time": "2025-11-12T04:20:01.741471",
-            "end_time": "2025-11-12T04:40:25.902690"
+            "duration_min": 6.665724616666666,
+            "start_time": "2025-11-19T02:07:24.261795",
+            "end_time": "2025-11-19T02:14:04.205272"
+          }
+        },
+        {
+          "name": "Pendulum TD3 Static QBound",
+          "script": "experiments/pendulum/train_pendulum_td3_full_qbound.py",
+          "methods": 2,
+          "estimated_time_min": 90,
+          "result": {
+            "status": "success",
+            "duration_min": 166.3943613,
+            "start_time": "2025-11-19T09:22:33.381713",
+            "end_time": "2025-11-19T12:08:57.043391"
           }
         }
       ],
-      "end_time": "2025-11-12T06:43:28.423693"
+      "end_time": "2025-11-19T12:39:17.605872"
     }
   },
-  "session_end": "2025-11-12T06:43:28.425605",
-  "total_duration_min": 0.00030745
+  "session_end": "2025-11-19T12:39:17.607309",
+  "total_duration_min": 0.0006183
 }

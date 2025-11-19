@@ -1,8 +1,8 @@
 """
-Pendulum-v1: DQN/DDQN 6-Way Comparison - Time-Step Dependent Rewards
+Pendulum-v1: DQN/DDQN 4-Way Comparison - Static QBound Only
 Organization: Time-step Dependent Rewards
 
-Tests whether DQN and Double DQN benefit from QBound on continuous control tasks
+Tests whether DQN and Double DQN benefit from Static QBound on continuous control tasks
 with dense time-step dependent negative rewards.
 
 Environment: Pendulum-v1 (discrete actions via discretization, dense negative rewards)
@@ -11,12 +11,10 @@ Reward Structure: Dense negative rewards per time step (time-step dependent)
 Comparison:
 1. Standard DQN - No QBound, no Double-Q
 2. Static QBound + DQN - Q ∈ [-1616, 0]
-3. Dynamic QBound + DQN - Q ∈ [Q_min(t), 0] with step-aware bounds
-4. Standard Double DQN - No QBound, with Double-Q
-5. Static QBound + Double DQN - Q ∈ [-1616, 0] + Double-Q
-6. Dynamic QBound + Double DQN - Q ∈ [Q_min(t), 0] + Double-Q
+3. Standard Double DQN - No QBound, with Double-Q
+4. Static QBound + Double DQN - Q ∈ [-1616, 0] + Double-Q
 
-Note: This tests QBound on time-step dependent negative rewards, complementing
+Note: This tests Static QBound on time-step dependent negative rewards, complementing
 the CartPole experiments which test time-step dependent positive rewards.
 """
 
@@ -36,7 +34,7 @@ from double_dqn_agent import DoubleDQNAgent
 from tqdm import tqdm
 
 # Parse command line arguments
-parser = argparse.ArgumentParser(description='Pendulum DQN/DDQN 6-way comparison with QBound (Time-step Dependent)')
+parser = argparse.ArgumentParser(description='Pendulum DQN/DDQN 4-way comparison with Static QBound')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility (default: 42)')
 args = parser.parse_args()
 
@@ -105,7 +103,7 @@ def is_method_completed(results, method_name):
     return method_name in results.get('training', {})
 
 
-def train_agent(env, agent, agent_name, max_episodes=MAX_EPISODES, use_step_aware=False, track_violations=False):
+def train_agent(env, agent, agent_name, max_episodes=MAX_EPISODES, track_violations=False):
     """Train agent and return results with optional violation tracking"""
     print(f"\n>>> Training {agent_name}...")
 
@@ -135,11 +133,8 @@ def train_agent(env, agent, agent_name, max_episodes=MAX_EPISODES, use_step_awar
             next_state, reward, terminated, truncated, _ = env.step(continuous_action)
             done = terminated or truncated
 
-            # Store transition (with step info if using step-aware bounds)
-            if use_step_aware:
-                agent.store_transition(state, discrete_action, reward, next_state, done, current_step=step)
-            else:
-                agent.store_transition(state, discrete_action, reward, next_state, done)
+            # Store transition
+            agent.store_transition(state, discrete_action, reward, next_state, done)
 
             # Train and collect violation stats
             loss, violations = agent.train_step()
@@ -186,9 +181,9 @@ def train_agent(env, agent, agent_name, max_episodes=MAX_EPISODES, use_step_awar
 
 def main():
     print("=" * 80)
-    print("Pendulum-v1: DQN/DDQN 6-Way Comparison (Time-Step Dependent)")
+    print("Pendulum-v1: DQN/DDQN 4-Way Comparison (Static QBound)")
     print("Organization: Time-step Dependent Rewards")
-    print("Testing: DQN + Double DQN + QBound variants")
+    print("Testing: DQN + Double DQN + Static QBound")
     print("=" * 80)
 
     print(f"\nConfiguration:")
@@ -226,13 +221,7 @@ def main():
                 'action_bins': ACTION_BINS,
                 'qbound_min': QBOUND_MIN,
                 'qbound_max': QBOUND_MAX,
-                'seed': SEED,
-                # Dynamic QBound parameters (for methods that use them)
-                'dynamic_qbound_params': {
-                    'max_episode_steps': MAX_STEPS,
-                    'step_reward': -16.27,
-                    'reward_is_negative': True
-                }
+                'seed': SEED
             },
             'training': {}
         }
@@ -262,7 +251,7 @@ def main():
             use_qclip=False, device='cpu'
         )
         dqn_rewards, dqn_steps, _ = train_agent(
-            env, dqn_agent, "1. Standard DQN", use_step_aware=False, track_violations=False)
+            env, dqn_agent, "1. Standard DQN", track_violations=False)
         results['training']['dqn'] = {
             'rewards': dqn_rewards,
             'steps': dqn_steps,
@@ -292,7 +281,7 @@ def main():
             device='cpu'
         )
         static_qbound_dqn_rewards, static_qbound_dqn_steps, static_qbound_dqn_violations = train_agent(
-            env, static_qbound_dqn_agent, "2. Static QBound + DQN", use_step_aware=False, track_violations=True)
+            env, static_qbound_dqn_agent, "2. Static QBound + DQN", track_violations=True)
 
         # Compute violation statistics
         valid_violations = [v for v in static_qbound_dqn_violations if v is not None]
@@ -314,50 +303,9 @@ def main():
         }
         save_intermediate_results(results)
 
-    # ===== 3. Dynamic QBound + DQN =====
+    # ===== 3. Double DQN =====
     print("\n" + "=" * 80)
-    print("METHOD 3: Dynamic QBound + DQN")
-    print("=" * 80)
-
-    if is_method_completed(results, 'dynamic_qbound_dqn'):
-        print("⏭️  Already completed, skipping...")
-    else:
-        dynamic_qbound_dqn_agent = DQNAgent(
-            state_dim=state_dim, action_dim=action_dim, learning_rate=LR,
-            gamma=GAMMA, epsilon_start=EPSILON_START, epsilon_end=EPSILON_END,
-            epsilon_decay=EPSILON_DECAY, buffer_size=BUFFER_SIZE,
-            batch_size=BATCH_SIZE, target_update_freq=TARGET_UPDATE_FREQ,
-            use_qclip=True, qclip_min=QBOUND_MIN, qclip_max=QBOUND_MAX,
-            use_step_aware_qbound=True, max_episode_steps=MAX_STEPS,
-            step_reward=-16.27, reward_is_negative=True,
-            device='cpu'
-        )
-        dynamic_qbound_dqn_rewards, dynamic_qbound_dqn_steps, dynamic_qbound_dqn_violations = train_agent(
-            env, dynamic_qbound_dqn_agent, "3. Dynamic QBound + DQN", use_step_aware=True, track_violations=True)
-
-        # Compute violation statistics
-        valid_violations = [v for v in dynamic_qbound_dqn_violations if v is not None]
-        violation_summary = {
-            'per_episode': valid_violations,
-            'mean': {k: float(np.mean([v[k] for v in valid_violations])) for k in valid_violations[0].keys()} if valid_violations else {},
-            'final_100': {k: float(np.mean([v[k] for v in valid_violations[-100:]])) for k in valid_violations[0].keys()} if valid_violations else {}
-        }
-
-        results['training']['dynamic_qbound_dqn'] = {
-            'rewards': dynamic_qbound_dqn_rewards,
-            'steps': dynamic_qbound_dqn_steps,
-            'total_reward': float(np.sum(dynamic_qbound_dqn_rewards)),
-            'mean_reward': float(np.mean(dynamic_qbound_dqn_rewards)),
-            'mean_steps': float(np.mean(dynamic_qbound_dqn_steps)),
-            'final_100_mean': float(np.mean(dynamic_qbound_dqn_rewards[-100:])),
-            'final_100_std': float(np.std(dynamic_qbound_dqn_rewards[-100:])),
-            'violations': violation_summary
-        }
-        save_intermediate_results(results)
-
-    # ===== 4. Double DQN =====
-    print("\n" + "=" * 80)
-    print("METHOD 4: Double DQN")
+    print("METHOD 3: Double DQN")
     print("=" * 80)
 
     if is_method_completed(results, 'double_dqn'):
@@ -371,7 +319,7 @@ def main():
             use_qclip=False, device='cpu'
         )
         double_dqn_rewards, double_dqn_steps, _ = train_agent(
-            env, double_dqn_agent, "4. Double DQN", use_step_aware=False, track_violations=False)
+            env, double_dqn_agent, "3. Double DQN", track_violations=False)
         results['training']['double_dqn'] = {
             'rewards': double_dqn_rewards,
             'steps': double_dqn_steps,
@@ -384,9 +332,9 @@ def main():
         }
         save_intermediate_results(results)
 
-    # ===== 5. Static QBound + Double DQN =====
+    # ===== 4. Static QBound + Double DQN =====
     print("\n" + "=" * 80)
-    print("METHOD 5: Static QBound + Double DQN")
+    print("METHOD 4: Static QBound + Double DQN")
     print("=" * 80)
 
     if is_method_completed(results, 'static_qbound_double_dqn'):
@@ -401,7 +349,7 @@ def main():
             device='cpu'
         )
         static_qbound_double_dqn_rewards, static_qbound_double_dqn_steps, static_qbound_double_dqn_violations = train_agent(
-            env, static_qbound_double_dqn_agent, "5. Static QBound + Double DQN", use_step_aware=False, track_violations=True)
+            env, static_qbound_double_dqn_agent, "4. Static QBound + Double DQN", track_violations=True)
 
         # Compute violation statistics
         valid_violations = [v for v in static_qbound_double_dqn_violations if v is not None]
@@ -423,56 +371,15 @@ def main():
         }
         save_intermediate_results(results)
 
-    # ===== 6. Dynamic QBound + Double DQN =====
-    print("\n" + "=" * 80)
-    print("METHOD 6: Dynamic QBound + Double DQN")
-    print("=" * 80)
-
-    if is_method_completed(results, 'dynamic_qbound_double_dqn'):
-        print("⏭️  Already completed, skipping...")
-    else:
-        dynamic_qbound_double_dqn_agent = DoubleDQNAgent(
-            state_dim=state_dim, action_dim=action_dim, learning_rate=LR,
-            gamma=GAMMA, epsilon_start=EPSILON_START, epsilon_end=EPSILON_END,
-            epsilon_decay=EPSILON_DECAY, buffer_size=BUFFER_SIZE,
-            batch_size=BATCH_SIZE, target_update_freq=TARGET_UPDATE_FREQ,
-            use_qclip=True, qclip_min=QBOUND_MIN, qclip_max=QBOUND_MAX,
-            use_step_aware_qbound=True, max_episode_steps=MAX_STEPS,
-            step_reward=-16.27, reward_is_negative=True,
-            device='cpu'
-        )
-        dynamic_qbound_double_dqn_rewards, dynamic_qbound_double_dqn_steps, dynamic_qbound_double_dqn_violations = train_agent(
-            env, dynamic_qbound_double_dqn_agent, "6. Dynamic QBound + Double DQN", use_step_aware=True, track_violations=True)
-
-        # Compute violation statistics
-        valid_violations = [v for v in dynamic_qbound_double_dqn_violations if v is not None]
-        violation_summary = {
-            'per_episode': valid_violations,
-            'mean': {k: float(np.mean([v[k] for v in valid_violations])) for k in valid_violations[0].keys()} if valid_violations else {},
-            'final_100': {k: float(np.mean([v[k] for v in valid_violations[-100:]])) for k in valid_violations[0].keys()} if valid_violations else {}
-        }
-
-        results['training']['dynamic_qbound_double_dqn'] = {
-            'rewards': dynamic_qbound_double_dqn_rewards,
-            'steps': dynamic_qbound_double_dqn_steps,
-            'total_reward': float(np.sum(dynamic_qbound_double_dqn_rewards)),
-            'mean_reward': float(np.mean(dynamic_qbound_double_dqn_rewards)),
-            'mean_steps': float(np.mean(dynamic_qbound_double_dqn_steps)),
-            'final_100_mean': float(np.mean(dynamic_qbound_double_dqn_rewards[-100:])),
-            'final_100_std': float(np.std(dynamic_qbound_double_dqn_rewards[-100:])),
-            'violations': violation_summary
-        }
-        save_intermediate_results(results)
-
     # ===== Analysis and Summary =====
     print("\n" + "=" * 80)
     print("DQN/DDQN RESULTS SUMMARY (Final 100 Episodes)")
     print("=" * 80)
 
-    methods = ['dqn', 'static_qbound_dqn', 'dynamic_qbound_dqn',
-               'double_dqn', 'static_qbound_double_dqn', 'dynamic_qbound_double_dqn']
-    labels = ['Standard DQN', 'Static QBound DQN', 'Dynamic QBound DQN',
-              'Double DQN', 'Static QBound+DDQN', 'Dynamic QBound+DDQN']
+    methods = ['dqn', 'static_qbound_dqn',
+               'double_dqn', 'static_qbound_double_dqn']
+    labels = ['Standard DQN', 'Static QBound DQN',
+              'Double DQN', 'Static QBound+DDQN']
 
     print(f"\n{'Method':<30} {'Mean ± Std':<25} {'vs Baseline':<15}")
     print("-" * 80)
@@ -501,14 +408,13 @@ def main():
 
     print(f"\n✓ Results saved to: {final_output_file}")
     print("\n" + "=" * 80)
-    print("Pendulum DQN/DDQN 6-Way Comparison Complete!")
+    print("Pendulum DQN/DDQN 4-Way Comparison Complete!")
     print("=" * 80)
 
     print("\n📊 Key Takeaways:")
-    print("  - Tests QBound on time-step dependent NEGATIVE rewards")
+    print("  - Tests Static QBound on time-step dependent NEGATIVE rewards")
     print("  - Complements CartPole (positive rewards) experiments")
-    print("  - Dynamic QBound uses step-aware bounds for negative rewards")
-    print("  - Compares standard DQN vs Double DQN with QBound variants")
+    print("  - Compares standard DQN vs Double DQN with Static QBound")
 
     env.close()
 
