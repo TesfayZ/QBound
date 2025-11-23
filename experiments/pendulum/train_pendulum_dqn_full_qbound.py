@@ -264,42 +264,46 @@ def main():
         }
         save_intermediate_results(results)
 
-    # ===== 2. Static QBound + DQN =====
+    # ===== 2. Architectural QBound + DQN (Negative Softplus) =====
     print("\n" + "=" * 80)
-    print("METHOD 2: Static QBound + DQN")
+    print("METHOD 2: Architectural QBound + DQN (Negative Softplus Activation)")
     print("=" * 80)
+    print("NOTE: Replaces algorithmic clipping with activation function for negative rewards")
+    print("      Uses -softplus(logits) to enforce Q ≤ 0 naturally")
 
-    if is_method_completed(results, 'static_qbound_dqn'):
+    if is_method_completed(results, 'architectural_qbound_dqn'):
         print("⏭️  Already completed, skipping...")
     else:
-        static_qbound_dqn_agent = DQNAgent(
+        architectural_qbound_dqn_agent = DQNAgent(
             state_dim=state_dim, action_dim=action_dim, learning_rate=LR,
             gamma=GAMMA, epsilon_start=EPSILON_START, epsilon_end=EPSILON_END,
             epsilon_decay=EPSILON_DECAY, buffer_size=BUFFER_SIZE,
             batch_size=BATCH_SIZE, target_update_freq=TARGET_UPDATE_FREQ,
-            use_qclip=True, qclip_min=QBOUND_MIN, qclip_max=QBOUND_MAX,
+            use_qclip=False,  # No algorithmic clipping!
+            use_architectural_qbound=True,  # Use activation function instead
             device='cpu'
         )
-        static_qbound_dqn_rewards, static_qbound_dqn_steps, static_qbound_dqn_violations = train_agent(
-            env, static_qbound_dqn_agent, "2. Static QBound + DQN", track_violations=True)
+        arch_qbound_dqn_rewards, arch_qbound_dqn_steps, arch_qbound_dqn_violations = train_agent(
+            env, architectural_qbound_dqn_agent, "2. Architectural QBound + DQN", track_violations=True)
 
-        # Compute violation statistics
-        valid_violations = [v for v in static_qbound_dqn_violations if v is not None]
+        # Compute violation statistics (should be 0% by construction!)
+        valid_violations = [v for v in arch_qbound_dqn_violations if v is not None]
         violation_summary = {
             'per_episode': valid_violations,
             'mean': {k: float(np.mean([v[k] for v in valid_violations])) for k in valid_violations[0].keys()} if valid_violations else {},
             'final_100': {k: float(np.mean([v[k] for v in valid_violations[-100:]])) for k in valid_violations[0].keys()} if valid_violations else {}
         }
 
-        results['training']['static_qbound_dqn'] = {
-            'rewards': static_qbound_dqn_rewards,
-            'steps': static_qbound_dqn_steps,
-            'total_reward': float(np.sum(static_qbound_dqn_rewards)),
-            'mean_reward': float(np.mean(static_qbound_dqn_rewards)),
-            'mean_steps': float(np.mean(static_qbound_dqn_steps)),
-            'final_100_mean': float(np.mean(static_qbound_dqn_rewards[-100:])),
-            'final_100_std': float(np.std(static_qbound_dqn_rewards[-100:])),
-            'violations': violation_summary
+        results['training']['architectural_qbound_dqn'] = {
+            'rewards': arch_qbound_dqn_rewards,
+            'steps': arch_qbound_dqn_steps,
+            'total_reward': float(np.sum(arch_qbound_dqn_rewards)),
+            'mean_reward': float(np.mean(arch_qbound_dqn_rewards)),
+            'mean_steps': float(np.mean(arch_qbound_dqn_steps)),
+            'final_100_mean': float(np.mean(arch_qbound_dqn_rewards[-100:])),
+            'final_100_std': float(np.std(arch_qbound_dqn_rewards[-100:])),
+            'violations': violation_summary,
+            'method': 'architectural_activation'  # Mark as new method
         }
         save_intermediate_results(results)
 
@@ -387,7 +391,15 @@ def main():
     baseline_mean = results['training']['dqn']['final_100_mean']
 
     for method, label in zip(methods, labels):
-        data = results['training'][method]
+        # Handle both naming conventions for crash recovery compatibility
+        # Old: 'architectural_qbound_dqn', New: 'static_qbound_dqn'
+        if method == 'static_qbound_dqn' and method not in results['training']:
+            # Fall back to old naming convention if new key doesn't exist
+            actual_method = 'architectural_qbound_dqn'
+        else:
+            actual_method = method
+
+        data = results['training'][actual_method]
         mean = data['final_100_mean']
         std = data['final_100_std']
 

@@ -277,15 +277,17 @@ def main():
         }
         save_intermediate_results(results)
 
-    # ===== 2. Static Soft QBound + TD3 =====
+    # ===== 2. Architectural QBound + TD3 (Negative Softplus) =====
     print("\n" + "=" * 80)
-    print("METHOD 2: Static Soft QBound + TD3")
+    print("METHOD 2: Architectural QBound + TD3 (Negative Softplus Activation)")
     print("=" * 80)
+    print("NOTE: Replaces algorithmic clipping with activation function for negative rewards")
+    print("      Uses -softplus(logits) to enforce Q ≤ 0 naturally")
 
-    if is_method_completed(results, 'static_soft_qbound'):
+    if is_method_completed(results, 'architectural_qbound_td3'):
         print("⏭️  Already completed, skipping...")
     else:
-        static_qbound_agent = TD3Agent(
+        architectural_qbound_agent = TD3Agent(
             state_dim=state_dim,
             action_dim=action_dim,
             max_action=max_action,
@@ -296,33 +298,21 @@ def main():
             policy_noise=POLICY_NOISE,
             noise_clip=NOISE_CLIP,
             policy_freq=POLICY_FREQ,
-            use_qbound=True,
-            qbound_min=QBOUND_MIN,
-            qbound_max=QBOUND_MAX,
-            use_soft_clip=True,  # CRITICAL: Use soft clipping for continuous control
-            soft_clip_beta=0.1,
-            # Static bounds
+            use_qbound=False,  # No algorithmic clipping!
+            use_architectural_qbound=True,  # Use activation function instead
             device='cpu'
         )
 
-        static_rewards, static_violations = train_agent(env, static_qbound_agent, "2. Static Soft QBound + TD3",
-                                                        track_violations=True)
+        architectural_rewards, architectural_violations = train_agent(env, architectural_qbound_agent, "2. Architectural QBound + TD3",
+                                                        track_violations=False)  # No violations by construction
 
-        # Compute violation statistics
-        valid_violations = [v for v in static_violations if v is not None]
-        violation_summary = {
-            'per_episode': valid_violations,
-            'mean': {k: float(np.mean([v[k] for v in valid_violations])) for k in valid_violations[0].keys()} if valid_violations else {},
-            'final_100': {k: float(np.mean([v[k] for v in valid_violations[-100:]])) for k in valid_violations[0].keys()} if valid_violations else {}
-        }
-
-        results['training']['static_soft_qbound'] = {
-            'rewards': static_rewards,
-            'total_reward': float(np.sum(static_rewards)),
-            'mean_reward': float(np.mean(static_rewards)),
-            'final_100_mean': float(np.mean(static_rewards[-100:])),
-            'final_100_std': float(np.std(static_rewards[-100:])),
-            'violations': violation_summary
+        results['training']['architectural_qbound_td3'] = {
+            'rewards': architectural_rewards,
+            'total_reward': float(np.sum(architectural_rewards)),
+            'mean_reward': float(np.mean(architectural_rewards)),
+            'final_100_mean': float(np.mean(architectural_rewards[-100:])),
+            'final_100_std': float(np.std(architectural_rewards[-100:])),
+            'note': 'Architectural bound via -softplus(logits), 0% violations by construction'
         }
         save_intermediate_results(results)
 

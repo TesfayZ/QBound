@@ -101,8 +101,10 @@ class Actor(nn.Module):
 class Critic(nn.Module):
     """Critic network - outputs Q-value for state-action pair"""
 
-    def __init__(self, state_dim, action_dim, hidden_dims=[400, 300]):
+    def __init__(self, state_dim, action_dim, hidden_dims=[400, 300],
+                 use_negative_activation=False):
         super(Critic, self).__init__()
+        self.use_negative_activation = use_negative_activation
 
         # Concatenate state and action
         self.fc1 = nn.Linear(state_dim + action_dim, hidden_dims[0])
@@ -113,7 +115,14 @@ class Critic(nn.Module):
         x = torch.cat([state, action], dim=1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        q_value = self.fc3(x)
+        logits = self.fc3(x)
+
+        if self.use_negative_activation:
+            # Architectural bound for negative rewards: Q ≤ 0
+            q_value = -F.softplus(logits)
+        else:
+            q_value = logits
+
         return q_value
 
 
@@ -185,6 +194,7 @@ class TD3Agent:
         use_step_aware_qbound=False,
         max_episode_steps=None,
         step_reward=None,
+        use_architectural_qbound=False,
         device='cpu'
     ):
         self.device = device
@@ -200,6 +210,7 @@ class TD3Agent:
         self.qbound_max = qbound_max if qbound_max is not None else np.inf
         self.use_soft_clip = use_soft_clip
         self.soft_clip_beta = soft_clip_beta
+        self.use_architectural_qbound = use_architectural_qbound
 
         # Step-aware QBound parameters (for time-step dependent rewards)
         self.use_step_aware_qbound = use_step_aware_qbound
@@ -218,15 +229,19 @@ class TD3Agent:
         self.actor_target.load_state_dict(self.actor.state_dict())
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=lr_actor)
 
-        # Twin critic networks (critic 1)
-        self.critic_1 = Critic(state_dim, action_dim).to(device)
-        self.critic_1_target = Critic(state_dim, action_dim).to(device)
+        # Twin critic networks with optional architectural bounds
+        self.critic_1 = Critic(state_dim, action_dim,
+                              use_negative_activation=use_architectural_qbound).to(device)
+        self.critic_1_target = Critic(state_dim, action_dim,
+                                     use_negative_activation=use_architectural_qbound).to(device)
         self.critic_1_target.load_state_dict(self.critic_1.state_dict())
         self.critic_1_optimizer = optim.Adam(self.critic_1.parameters(), lr=lr_critic)
 
         # Twin critic networks (critic 2)
-        self.critic_2 = Critic(state_dim, action_dim).to(device)
-        self.critic_2_target = Critic(state_dim, action_dim).to(device)
+        self.critic_2 = Critic(state_dim, action_dim,
+                              use_negative_activation=use_architectural_qbound).to(device)
+        self.critic_2_target = Critic(state_dim, action_dim,
+                                     use_negative_activation=use_architectural_qbound).to(device)
         self.critic_2_target.load_state_dict(self.critic_2.state_dict())
         self.critic_2_optimizer = optim.Adam(self.critic_2.parameters(), lr=lr_critic)
 

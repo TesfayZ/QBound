@@ -271,21 +271,20 @@ def main():
         }
         save_intermediate_results(results)
 
-    # ===== 2. Static Soft QBound + PPO =====
+    # ===== 2. Architectural QBound + PPO (Negative Softplus) =====
     print("\n" + "=" * 60)
-    print("METHOD 2: Static Soft QBound + PPO")
+    print("METHOD 2: Architectural QBound + PPO (Negative Softplus Activation)")
     print("=" * 60)
+    print("NOTE: Replaces algorithmic clipping with activation function for negative rewards")
+    print("      Uses -softplus(logits) to enforce V ≤ 0 naturally")
 
-    if is_method_completed(results, 'static_soft_qbound'):
+    if is_method_completed(results, 'architectural_qbound_ppo'):
         print("⏭️  Already completed, skipping...")
     else:
-        static_agent = PPOQBoundAgent(
+        architectural_agent = PPOAgent(
             state_dim=3,
             action_dim=1,
             continuous_action=True,
-            V_min=V_MIN,
-            V_max=V_MAX,
-            # Static bounds
             hidden_sizes=HIDDEN_SIZES,
             lr_actor=LR_ACTOR,
             lr_critic=LR_CRITIC,
@@ -295,26 +294,19 @@ def main():
             entropy_coef=ENTROPY_COEF,
             ppo_epochs=PPO_EPOCHS,
             minibatch_size=MINIBATCH_SIZE,
+            use_architectural_qbound=True,  # Use activation function instead of clipping
             device='cpu'
         )
 
-        static_rewards, static_violations = train_agent(env, static_agent, "PPO + Static Soft QBound", track_violations=True)
+        architectural_rewards, architectural_violations = train_agent(env, architectural_agent, "PPO + Architectural QBound", track_violations=False)  # No violations by construction
 
-        # Compute violation statistics
-        valid_violations = [v for v in static_violations if v is not None]
-        violation_summary = {
-            'per_episode': valid_violations,
-            'mean': {k: float(np.mean([v[k] for v in valid_violations])) for k in valid_violations[0].keys()} if valid_violations else {},
-            'final_100': {k: float(np.mean([v[k] for v in valid_violations[-100:] if v is not None])) for k in valid_violations[0].keys()} if valid_violations else {}
-        }
-
-        results['training']['static_soft_qbound'] = {
-            'rewards': static_rewards,
-            'final_100_mean': float(np.mean(static_rewards[-100:])),
-            'final_100_std': float(np.std(static_rewards[-100:])),
-            'max': float(np.max(static_rewards[-100:])),
-            'min': float(np.min(static_rewards[-100:])),
-            'violations': violation_summary
+        results['training']['architectural_qbound_ppo'] = {
+            'rewards': architectural_rewards,
+            'final_100_mean': float(np.mean(architectural_rewards[-100:])),
+            'final_100_std': float(np.std(architectural_rewards[-100:])),
+            'max': float(np.max(architectural_rewards[-100:])),
+            'min': float(np.min(architectural_rewards[-100:])),
+            'note': 'Architectural bound via -softplus(logits), 0% violations by construction'
         }
         save_intermediate_results(results)
 

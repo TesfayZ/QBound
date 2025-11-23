@@ -20,10 +20,16 @@ from typing import List, Tuple
 
 
 class QNetwork(nn.Module):
-    """Neural network for Q-value approximation."""
+    """Neural network for Q-value approximation.
 
-    def __init__(self, state_dim: int, action_dim: int, hidden_dim: int = 128):
+    Supports architectural bounds via activation functions for negative rewards.
+    """
+
+    def __init__(self, state_dim: int, action_dim: int, hidden_dim: int = 128,
+                 use_negative_activation: bool = False):
         super(QNetwork, self).__init__()
+        self.use_negative_activation = use_negative_activation
+
         self.network = nn.Sequential(
             nn.Linear(state_dim, hidden_dim),
             nn.ReLU(),
@@ -33,7 +39,18 @@ class QNetwork(nn.Module):
         )
 
     def forward(self, x):
-        return self.network(x)
+        logits = self.network(x)
+
+        if self.use_negative_activation:
+            # Architectural bound for negative rewards: Q ≤ 0
+            # Using negative softplus: Q ∈ (-∞, 0]
+            # Gradient: -sigmoid(logits), never zero (no saturation)
+            Q = -torch.nn.functional.softplus(logits)
+        else:
+            # Standard unbounded output
+            Q = logits
+
+        return Q
 
 
 class ReplayBuffer:
@@ -99,7 +116,8 @@ class DQNAgent:
         use_step_aware_qbound: bool = False,
         max_episode_steps: int = 500,
         step_reward: float = 1.0,
-        reward_is_negative: bool = False
+        reward_is_negative: bool = False,
+        use_architectural_qbound: bool = False
     ):
         """
         Args:
@@ -107,6 +125,7 @@ class DQNAgent:
             max_episode_steps: Maximum episode length (for computing dynamic Q-bounds)
             step_reward: Reward magnitude per step (for computing dynamic Q-bounds)
             reward_is_negative: True for negative rewards (sparse), False for positive (dense)
+            use_architectural_qbound: Use activation function (negative softplus) instead of clipping
         """
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -120,6 +139,7 @@ class DQNAgent:
         self.qclip_max = qclip_max
         self.qclip_min = qclip_min
         self.device = torch.device(device)
+        self.use_architectural_qbound = use_architectural_qbound
 
         # Step-aware Q-bounds
         self.use_step_aware_qbound = use_step_aware_qbound
@@ -127,9 +147,15 @@ class DQNAgent:
         self.step_reward = step_reward
         self.reward_is_negative = reward_is_negative
 
-        # Q-networks
-        self.q_network = QNetwork(state_dim, action_dim).to(self.device)
-        self.target_network = QNetwork(state_dim, action_dim).to(self.device)
+        # Q-networks with optional architectural bounds
+        self.q_network = QNetwork(
+            state_dim, action_dim,
+            use_negative_activation=use_architectural_qbound
+        ).to(self.device)
+        self.target_network = QNetwork(
+            state_dim, action_dim,
+            use_negative_activation=use_architectural_qbound
+        ).to(self.device)
         self.target_network.load_state_dict(self.q_network.state_dict())
 
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
