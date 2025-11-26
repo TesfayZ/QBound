@@ -1,0 +1,192 @@
+{
+  "gridworld": {
+    "baseline": {
+      "final_mean": 0.986,
+      "final_std": 0.02799999999999998,
+      "n_seeds": 5
+    },
+    "static_qbound": {
+      "final_mean": 0.982,
+      "final_std": 0.03599999999999998,
+      "n_seeds": 5
+    },
+    "baseline_ddqn": {
+      "final_mean": 1.0,
+      "final_std": 0.0,
+      "n_seeds": 5
+    },
+    "static_qbound_ddqn": {
+      "final_mean": 1.0,
+      "final_std": 0.0,
+      "n_seeds": 5
+    }
+  },
+  "frozenlake": {
+    "baseline": {
+      "final_mean": 0.5960000000000001,
+      "final_std": 0.026532998322843185,
+      "n_seeds": 5
+    },
+    "static_qbound": {
+      "final_mean": 0.594,
+      "final_std": 0.09911609354691095,
+      "n_seeds": 5
+    },
+    "baseline_ddqn": {
+      "final_mean": 0.5980000000000001,
+      "final_std": 0.020396078054371117,
+      "n_seeds": 5
+    },
+    "static_qbound_ddqn": {
+      "final_mean": 0.62,
+      "final_std": 0.05899152481501052,
+      "n_seeds": 5
+    }
+  },
+  "cartpole_dqn": {
+    "baseline": {
+      "final_mean": 351.072,
+      "final_std": 41.49514352306785,
+      "n_seeds": 5
+    },
+    "static_qbound": {
+      "final_mean": 393.242,
+      "final_std": 33.00642870714734,
+      "n_seeds": 5
+    },
+    "baseline_ddqn": {
+      "final_mean": 147.82999999999998,
+      "final_std": 87.12620065169833,
+      "n_seeds": 5
+    },
+    "static_qbound_ddqn": {
+      "final_mean": 197.49599999999998,
+      "final_std": 45.458144088820866,
+      "n_seeds": 5
+    }
+  },
+  "cartpole_dueling": {
+    "dueling_dqn": {
+      "final_mean": 289.302,
+      "final_std": 31.798064343604317,
+      "n_seeds": 5
+    },
+    "static_qbound_dueling_dqn": {
+      "final_mean": 354.454,
+      "final_std": 38.01734372625209,
+      "n_seeds": 5
+    },
+    "double_dueling_dqn": {
+      "final_mean": 321.796,
+      "final_std": 77.43411460073655,
+      "n_seeds": 5
+    },
+    "static_qbound_double_dueling_dqn": {
+      "final_mean": 371.78799999999995,
+      "final_std": 16.19236289119041,
+      "n_seeds": 5
+    }
+  },
+  "pendulum_dqn": {
+    "dqn": {
+      "final_mean": -156.25045322247405,
+      "final_std": 4.257422401154872,
+      "n_seeds": 5
+    },
+    "architectural_qbound_dqn": {
+      "final_mean": -161.3599077327071,
+      "final_std": 6.2273626916700895,
+      "n_seeds": 5
+    },
+    "double_dqn": {
+      "final_mean": -170.0110363852853,
+      "final_std": 6.895013337914106,
+      "n_seeds": 5
+    },
+    "static_qbound_double_dqn": {
+      "final_mean": -182.04701507214682,
+      "final_std": 4.939707666168562,
+      "n_seeds": 5
+    }
+  },
+  "pendulum_ddpg": {
+    "baseline": {
+      "final_mean": -188.63092900585247,
+      "final_std": 18.723936490809905,
+      "n_seeds": 5
+    },
+    "architectural_qbound_ddpg": {
+      "final_mean": -203.75523285672284,
+      "final_std": 38.40908502672541,
+      "n_seeds": 5
+    }
+  },
+  "pendulum_td3": {
+    "baseline": {
+      "final_mean": -183.24563204086675,
+      "final_std": 23.363816970415613,
+      "n_seeds": 5
+    },
+    "architectural_qbound_td3": {
+      "final_mean": -175.66325024422966,
+      "final_std": 40.15427761565131,
+      "n_seeds": 5
+    }
+  },
+  "pendulum_ppo": {
+    "baseline": {
+      "final_mean": -784.9606733978641,
+      "final_std": 269.1420512946554,
+      "n_seeds": 5
+    },
+    "architectural_qbound_ppo": {
+      "final_mean": -869.6303185959699,
+      "final_std": 133.54726828516553,
+      "n_seeds": 5
+    }
+  },
+  "mountaincar": {
+    "baseline": {
+      "final_mean": -124.136,
+      "final_std": 9.201988046069173,
+      "n_seeds": 5
+    },
+    "static_qbound": {
+      "final_mean": -134.308,
+      "final_std": 7.248537507663183,
+      "n_seeds": 5
+    },
+    "baseline_ddqn": {
+      "final_mean": -122.71999999999998,
+      "final_std": 17.04016079736338,
+      "n_seeds": 5
+    },
+    "static_qbound_ddqn": {
+      "final_mean": -180.926,
+      "final_std": 38.148,
+      "n_seeds": 5
+    }
+  },
+  "acrobot": {
+    "baseline": {
+      "final_mean": -88.74,
+      "final_std": 3.0896278093000142,
+      "n_seeds": 5
+    },
+    "static_qbound": {
+      "final_mean": -93.07399999999998,
+      "final_std": 4.877214778949148,
+      "n_seeds": 5
+    },
+    "baseline_ddqn": {
+      "final_mean": -83.988,
+      "final_std": 1.989888439083957,
+      "n_seeds": 5
+    },
+    "static_qbound_ddqn": {
+      "final_mean": -87.044,
+      "final_std": 3.7931759779899483,
+      "n_seeds": 5
+    }
+  }
+}
