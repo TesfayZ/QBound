@@ -71,7 +71,7 @@
 \begin{abstract}
 Value-based reinforcement learning methods suffer from overestimation bias \citep{thrun1993issues, van2016deep}, where bootstrapped Q-value estimates systematically exceed true values, causing instability and poor sample efficiency. We present QBound, a stabilization mechanism that exploits environment structure to prevent overestimation by deriving and enforcing Q-value bounds from known reward structures. QBound addresses overestimation at its source (bootstrapped targets) by clipping next-state Q-values to environment-specific bounds $[Q_{\min}, Q_{\max}]$, which propagate naturally through temporal difference learning.
 
-Comprehensive evaluation across 10 environments with 5 independent random seeds (50 runs total) reveals that QBound's effectiveness fundamentally depends on reward sign. For positive dense reward environments (e.g., CartPole: $r = +1$ per timestep), QBound achieves consistent improvements of 12\% to 34\% across all DQN variants (standard DQN, Double DQN, Dueling DQN) by preventing unbounded Q-value growth. Neural networks with linear output layers have no architectural constraint on positive values, making explicit upper bounds essential.
+Comprehensive evaluation across 10 environments with 5 independent random seeds (50 runs total) reveals that QBound's effectiveness fundamentally depends on reward sign, with significant seed-dependent variability. For positive dense reward environments (e.g., CartPole: $r = +1$ per timestep), QBound achieves mean improvements of 12\% to 22\% across DQN variants, but per-seed analysis reveals inconsistency: CartPole Dueling shows 100\% win rate (5/5 seeds improve), while CartPole DQN shows only 80\% win rate (4/5 seeds improve, with one seed degrading by 8.7\%). Neural networks with linear output layers have no architectural constraint on positive values, making explicit upper bounds beneficial on average.
 
 For negative reward environments (Pendulum: $r \in [-16, 0]$), we tested architectural QBound (output activation: $Q = -\text{softplus}(\text{logits})$) across multiple algorithms. QBound degrades performance for most algorithms: architectural QBound degrades DQN by 3.3\%, Double DQN by 7.1\%, DDPG by 8.0\%, and PPO by 10.8\%. TD3 is an exception, showing 4.1\% improvement with architectural QBound ($-183.25 \rightarrow -175.66$) but with 72\% higher variance ($\pm 40.15$ vs $\pm 23.36$), suggesting a unique interaction with TD3's twin critic architecture.
 
@@ -79,9 +79,9 @@ PPO's degradation has a clear mechanism: on-policy sampling naturally reduces ov
 
 The fundamental question of why QBound works for positive but not negative rewards remains open. Both $Q_{\max}$ (positive rewards) and $Q_{\max}=0$ (negative rewards) are theoretical upper bounds derived from cumulative discounted rewards. We propose several hypotheses for future investigation: (1) network initialization bias interacts differently with positive vs negative targets, (2) gradient flow patterns differ across value ranges, (3) replay buffer composition effects, (4) exploration strategy interactions. Answering this question requires controlled ablation studies beyond the scope of this work.
 
-This work provides: (1) systematic empirical characterization across 50 runs showing QBound's strong positive-reward effectiveness (12\% to 34\%), (2) comprehensive negative results for negative rewards preventing wasted research effort, (3) identification of TD3 as an exceptional case warranting investigation, (4) clear statement of unexplained phenomena with testable hypotheses. Implementation imposes negligible overhead ($<$2\%). All experiments use 5 seeds with full reproducibility protocols.
+This work provides: (1) systematic per-seed analysis across 50 runs showing QBound's effectiveness varies by algorithm (100\% win rate for Dueling DQN, 80\% for standard DQN), (2) comprehensive negative results for negative rewards (40-60\% win rates, no better than chance), (3) honest reporting of seed-dependent failures even in successful cases, (4) clear recommendations based on win rates rather than mean improvements alone. Implementation imposes negligible overhead ($<$2\%). All experiments use 5 seeds with full reproducibility protocols.
 
-\textbf{Recommendations:} (1) Use hard clipping QBound for positive dense rewards (CartPole-style environments: 12\% to 34\% improvement). (2) Do not use QBound for negative rewards with DQN/DDPG/PPO (consistent degradation). (3) TD3 on negative rewards shows modest benefit (4.1\%) but high variance; use with caution pending mechanistic understanding. (4) Do not use for on-policy methods (PPO: 10.8\% degradation, explained by redundancy with on-policy sampling). QBound is a specialized technique for positive dense rewards, not a universal improvement.
+\textbf{Recommendations:} (1) Use hard clipping QBound for positive dense rewards with Dueling DQN (100\% win rate, +22.5\% mean improvement). (2) For standard DQN on positive rewards, QBound helps on average (+12\%) but expect 20\% of seeds to degrade. (3) Do not use QBound for negative rewards---win rates are 40-60\% (no better than chance) with high variance. (4) Do not use for sparse rewards or on-policy methods. QBound is a specialized technique for positive dense rewards, not a universal improvement, and practitioners should run multiple seeds before deployment.
 \end{abstract}
 
 \keywords{Reinforcement Learning \and Temporal Difference Learning \and Q-Learning \and Overestimation Bias \and Value Stability \and Sample Efficiency}
@@ -2141,28 +2141,34 @@ Environment & Method & Mean Reward & Std Dev & Change \\
 
 \begin{table}[h]
 \centering
-\caption{QBound Success Rate Summary (14 Algorithm-Environment Combinations)}
+\caption{QBound Success Rate Summary: Mean Change vs Per-Seed Win Rate}
 \label{tab:overall-success}
-\begin{tabular}{lcccc}
+\begin{tabular}{llccc}
 \toprule
-Category & Combinations & Success ($>$5\%) & Neutral ($\pm$5\%) & Failure ($<$-5\%) \\
+\textbf{Category} & \textbf{Environment} & \textbf{Mean $\Delta$} & \textbf{Win Rate} & \textbf{Reliable?} \\
 \midrule
-Positive Dense Rewards & 4 & 4 (100\%) & 0 & 0 \\
-Negative Dense (TD3) & 1 & 1 (100\%) & 0 & 0 \\
-Negative Dense (Others) & 3 & 0 & 1 & 2 (67\%) \\
-Sparse Terminal Rewards & 2 & 0 & 2 (100\%) & 0 \\
-State-Dependent Negative & 4 & 0 & 2 & 2 (50\%) \\
+\multirow{2}{*}{Positive Dense} & CartPole DQN & +12.0\% & 4/5 (80\%) & Mostly \\
+& CartPole Dueling & +22.5\% & \textbf{5/5 (100\%)} & \textbf{Yes} \\
 \midrule
-\textbf{Overall} & \textbf{14} & \textbf{5 (36\%)} & \textbf{5 (36\%)} & \textbf{4 (28\%)} \\
+\multirow{4}{*}{Negative Dense} & Pendulum DQN & -3.3\% & 2/5 (40\%) & No \\
+& Pendulum DDPG & -8.0\% & 2/5 (40\%) & No \\
+& Pendulum TD3 & +4.1\% & 4/5 (80\%) & Mostly \\
+& Pendulum PPO & -10.8\% & 3/5 (60\%) & No \\
+\midrule
+\multirow{2}{*}{Sparse Terminal} & GridWorld & -0.4\% & 1/5 (20\%) & No \\
+& FrozenLake & -0.3\% & 3/5 (60\%) & No \\
+\midrule
+\multirow{2}{*}{State-Dependent} & MountainCar & -8.2\% & 1/5 (20\%) & No \\
+& Acrobot & -4.9\% & 2/5 (40\%) & No \\
 \bottomrule
 \end{tabular}
 \end{table}
 
- QBound is \textit{not} universally effective. Success depends critically on reward sign and algorithm:
+ QBound is \textit{not} universally effective. Per-seed win rates reveal the true picture:
 \begin{itemize}
-    \item \checkmark \textbf{Strong success (36\%):} Positive dense rewards (CartPole: 12-34\% across all variants), TD3 on negative rewards (4.1\%)
-    \item \textcolor{gray}{$\sim$} \textbf{Neutral (36\%):} Sparse terminal rewards (GridWorld, FrozenLake), DQN on negative rewards (-3.3\%)
-    \item $\times$ \textbf{Failure (28\%):} DDPG (-8.0\%), PPO (-10.8\%), MountainCar/Acrobot DDQN (-47\%, -3.6\%)
+    \item \checkmark \textbf{Reliable (1/10):} Only CartPole Dueling shows 100\% win rate across all seeds
+    \item \textcolor{orange}{$\sim$} \textbf{Mostly reliable (2/10):} CartPole DQN and Pendulum TD3 show 80\% win rates, but individual seeds can fail significantly
+    \item $\times$ \textbf{Unreliable (7/10):} Win rates of 20-60\% indicate QBound performs no better than chance
 \end{itemize}
 
 \subsubsection{Statistical Significance Testing}
@@ -2177,6 +2183,46 @@ where $n=5$ seeds.
     \item QBound: $393.24 \pm 33.01$ → CI: [364.32, 422.16]
     \item \textbf{Non-overlapping:} Statistically significant improvement
 \end{itemize}
+
+\subsubsection{Per-Seed Win Rate Analysis}
+
+While mean improvements are informative, they can mask seed-dependent variability. We report the \textit{win rate}---the fraction of seeds where QBound outperforms baseline---as a more robust measure of consistency.
+
+\begin{table}[h]
+\centering
+\caption{Per-Seed Win Rates: Fraction of Seeds Where QBound Outperforms Baseline}
+\label{tab:win-rates}
+\small
+\begin{tabular}{llccc}
+\toprule
+\textbf{Category} & \textbf{Environment} & \textbf{Win Rate} & \textbf{Mean $\Delta$} & \textbf{Consistent?} \\
+\midrule
+\multirow{2}{*}{Positive Dense} & CartPole DQN & 4/5 (80\%) & +12.0\% & Mostly \\
+& CartPole Dueling & \textbf{5/5 (100\%)} & +22.5\% & \textbf{Yes} \\
+\midrule
+\multirow{4}{*}{Negative Dense} & Pendulum DQN & 2/5 (40\%) & -3.3\% & No \\
+& Pendulum DDPG & 2/5 (40\%) & -8.0\% & No \\
+& Pendulum TD3 & 4/5 (80\%) & +4.1\% & Mostly \\
+& Pendulum PPO & 3/5 (60\%) & -10.8\% & No \\
+\midrule
+\multirow{2}{*}{Sparse Terminal} & GridWorld & 1/5 (20\%) & -0.4\% & No \\
+& FrozenLake & 3/5 (60\%) & -0.3\% & No \\
+\midrule
+\multirow{2}{*}{State-Dependent} & MountainCar & 1/5 (20\%) & -8.2\% & No \\
+& Acrobot & 2/5 (40\%) & -4.9\% & No \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key Observations:}
+\begin{itemize}
+    \item \textbf{CartPole Dueling is the only 100\% consistent result.} All 5 seeds show improvement with QBound.
+    \item \textbf{CartPole DQN and Pendulum TD3 show 80\% win rates} but have seeds with significant degradation (CartPole seed 44: -8.7\%; TD3 seed 44: -64.7\%).
+    \item \textbf{Negative reward environments show high variance.} DDPG ranges from +26.0\% (seed 44) to -52.3\% (seed 43).
+    \item \textbf{Sparse reward environments show no consistent benefit.} Win rates near or below 50\% indicate QBound provides no reliable improvement.
+\end{itemize}
+
+\textbf{Implication:} Mean improvements alone are insufficient for evaluating QBound. Practitioners should expect seed-dependent variability and run multiple seeds before deploying QBound in production.
 
 \subsection{Comparison with Related Methods}
 
