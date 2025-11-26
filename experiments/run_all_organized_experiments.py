@@ -5,6 +5,7 @@ Master Script: Run All Organized Experiments
 This script runs all experiments with baseline and static QBound only:
 - Time-step dependent environments (Baseline + Static QBound)
 - Sparse/State-dependent environments (Baseline + Static QBound)
+- Transformed Q-value experiments (Negative → Positive, tests QBound on shifted range)
 
 Organization Philosophy:
 ======================
@@ -14,9 +15,13 @@ Time-step dependent: Rewards accumulate predictably with time steps
 Sparse/State-dependent: Rewards depend on state transitions, not time
   → Tests baseline vs static QBound
 
-Total Scripts: 10 experiments
-- 6 time-step dependent (3 DQN scripts with 4 methods each + 3 continuous with 2 methods each)
+Transformed Q-values: Negative reward environments shifted to positive range
+  → Tests if QBound's failure is due to negative value range
+
+Total Scripts: 16 experiments
+- 8 time-step dependent (4 DQN scripts with 4 methods each + 4 continuous with 2 methods each)
 - 4 sparse/state-dependent (4 methods each: baseline + static × DQN/DDQN)
+- 3 transformed Q-value (2 methods each: baseline + QBound with Q-value transformation)
 
 Usage:
 ------
@@ -24,7 +29,7 @@ Usage:
 python3 experiments/run_all_organized_experiments.py
 
 # The script will:
-# - Run all categories (timestep + sparse)
+# - Run all categories (timestep + sparse + transformed)
 # - Use 5 seeds for statistical significance
 # - Auto-confirm (no prompt)
 # - Auto-skip completed experiments (crash recovery)
@@ -40,6 +45,9 @@ python3 experiments/run_all_organized_experiments.py --category timestep
 
 # Run only sparse/state-dependent experiments
 python3 experiments/run_all_organized_experiments.py --category sparse
+
+# Run only transformed Q-value experiments (NEW!)
+python3 experiments/run_all_organized_experiments.py --category transformed
 
 # Dry run (list what would be executed)
 python3 experiments/run_all_organized_experiments.py --dry-run
@@ -66,46 +74,60 @@ from pathlib import Path
 # Experiment definitions
 TIME_STEP_DEPENDENT_EXPERIMENTS = [
     {
-        'name': 'CartPole DQN Static QBound',
+        'name': 'CartPole DQN QBound',
         'script': 'experiments/cartpole/train_cartpole_dqn_full_qbound.py',
         'methods': 4,
         'est_time_min': 30,
-        'description': 'Dense positive reward (+1/step), tests DQN/DDQN with static QBound'
+        'description': 'Dense positive reward (+1/step), DQN/DDQN with baseline + static QBound'
     },
     {
-        'name': 'CartPole Dueling DQN Static QBound',
+        'name': 'CartPole Dueling DQN QBound',
         'script': 'experiments/cartpole/train_cartpole_dueling_full_qbound.py',
         'methods': 4,
         'est_time_min': 30,
-        'description': 'Architectural generalization test with Dueling DQN and static QBound'
+        'description': 'Dense positive reward (+1/step), Dueling DQN with baseline + static QBound'
     },
     {
-        'name': 'Pendulum DQN Static QBound',
-        'script': 'experiments/pendulum/train_pendulum_dqn_full_qbound.py',
-        'methods': 4,
-        'est_time_min': 120,
-        'description': 'Dense negative reward (time-step dependent), discretized actions with static QBound'
-    },
-    {
-        'name': 'Pendulum DDPG Static QBound',
+        'name': 'Pendulum DDPG QBound',
         'script': 'experiments/pendulum/train_pendulum_ddpg_full_qbound.py',
         'methods': 2,
         'est_time_min': 90,
-        'description': 'Continuous control with DDPG (baseline + static softplus_clip)'
+        'description': 'Continuous control with DDPG (baseline + static softplus_clip) - negative rewards'
     },
     {
-        'name': 'Pendulum PPO Static QBound',
-        'script': 'experiments/ppo/train_pendulum_ppo_full_qbound.py',
-        'methods': 2,
-        'est_time_min': 65,
-        'description': 'Continuous control with PPO (baseline + static QBound, hard clip returns only)'
-    },
-    {
-        'name': 'Pendulum TD3 Static QBound',
+        'name': 'Pendulum TD3 QBound',
         'script': 'experiments/pendulum/train_pendulum_td3_full_qbound.py',
         'methods': 2,
         'est_time_min': 90,
-        'description': 'Continuous control with TD3 (baseline + static softplus_clip, twin critics)'
+        'description': 'Continuous control with TD3 (baseline + static softplus_clip) - negative rewards'
+    },
+    {
+        'name': 'Acrobot DQN QBound',
+        'script': 'experiments/acrobot/train_acrobot_dqn_full_qbound.py',
+        'methods': 4,
+        'est_time_min': 45,
+        'description': 'Dense negative reward (-1/step), DQN/DDQN with baseline + static QBound'
+    },
+    {
+        'name': 'MountainCar DQN QBound',
+        'script': 'experiments/mountaincar/train_mountaincar_dqn_full_qbound.py',
+        'methods': 4,
+        'est_time_min': 60,
+        'description': 'Dense negative reward (-1/step), DQN/DDQN with baseline + static QBound'
+    },
+    {
+        'name': 'MountainCarContinuous DDPG QBound',
+        'script': 'experiments/mountaincar_continuous/train_mountaincar_continuous_ddpg_full_qbound.py',
+        'methods': 2,
+        'est_time_min': 90,
+        'description': 'Continuous control with DDPG (baseline + static softplus_clip) - negative rewards'
+    },
+    {
+        'name': 'MountainCarContinuous TD3 QBound',
+        'script': 'experiments/mountaincar_continuous/train_mountaincar_continuous_td3_full_qbound.py',
+        'methods': 2,
+        'est_time_min': 90,
+        'description': 'Continuous control with TD3 (baseline + static softplus_clip) - negative rewards'
     }
 ]
 
@@ -137,6 +159,32 @@ SPARSE_STATE_DEPENDENT_EXPERIMENTS = [
         'methods': 4,
         'est_time_min': 45,
         'description': 'State-dependent reward (-1 until swing-up goal)'
+    }
+]
+
+# NEW: Transformed Q-Value Experiments (Negative → Positive)
+# Tests whether transforming to positive Q-value range improves QBound performance
+TRANSFORMED_QVALUE_EXPERIMENTS = [
+    {
+        'name': 'MountainCar DQN Transformed (Negative→Positive)',
+        'script': 'experiments/mountaincar/train_mountaincar_dqn_transformed.py',
+        'methods': 2,
+        'est_time_min': 60,
+        'description': 'Transform Q ∈ [-86.6, 0] → Q ∈ [0, 86.6] to test if positive range fixes QBound'
+    },
+    {
+        'name': 'Acrobot DQN Transformed (Negative→Positive)',
+        'script': 'experiments/acrobot/train_acrobot_dqn_transformed.py',
+        'methods': 2,
+        'est_time_min': 45,
+        'description': 'Transform Q ∈ [-99.3, 0] → Q ∈ [0, 99.3] to test if positive range fixes QBound'
+    },
+    {
+        'name': 'Pendulum DDPG Transformed (Negative→Positive)',
+        'script': 'experiments/pendulum/train_pendulum_ddpg_transformed.py',
+        'methods': 2,
+        'est_time_min': 90,
+        'description': 'Transform Q ∈ [-1409, 0] → Q ∈ [0, 1409] to test if positive range improves QBound further'
     }
 ]
 
@@ -318,7 +366,7 @@ def main():
                         help='Single random seed for all experiments (overrides default multi-seed)')
     parser.add_argument('--seeds', type=int, nargs='+', default=None,
                         help='Multiple random seeds for automatic multi-seed runs (default: 42 43 44 45 46)')
-    parser.add_argument('--category', choices=['timestep', 'sparse', 'all'], default='all',
+    parser.add_argument('--category', choices=['timestep', 'sparse', 'transformed', 'all'], default='all',
                         help='Which category to run (default: all)')
     parser.add_argument('--dry-run', action='store_true',
                         help='Print what would be executed without running')
@@ -351,6 +399,9 @@ def main():
     if args.category in ['sparse', 'all']:
         experiments_to_run.extend(SPARSE_STATE_DEPENDENT_EXPERIMENTS)
 
+    if args.category in ['transformed', 'all']:
+        experiments_to_run.extend(TRANSFORMED_QVALUE_EXPERIMENTS)
+
     # Print summary
     print("\n" + "="*80)
     print("ORGANIZED QBOUND EXPERIMENTS - MULTI-SEED MODE")
@@ -366,6 +417,9 @@ def main():
 
     if args.category == 'sparse' or args.category == 'all':
         print_experiment_summary(SPARSE_STATE_DEPENDENT_EXPERIMENTS, "SPARSE/STATE-DEPENDENT")
+
+    if args.category == 'transformed' or args.category == 'all':
+        print_experiment_summary(TRANSFORMED_QVALUE_EXPERIMENTS, "TRANSFORMED Q-VALUES (Negative → Positive)")
 
     # Confirm before running
     if not args.dry_run:
