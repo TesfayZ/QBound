@@ -79,7 +79,7 @@ ax.grid(True, alpha=0.3, axis='y')
 plt.tight_layout()
 plt.savefig('/root/projects/QBound/results/plots/exploration_space_visualization.pdf', dpi=300, bbox_inches='tight')
 plt.savefig('/root/projects/QBound/results/plots/exploration_space_visualization.png', dpi=300, bbox_inches='tight')
-plt.savefig('/root/projects/QBound/QBound/figures/exploration_space_visualization.pdf', dpi=300, bbox_inches='tight')
+plt.savefig('/root/projects/QBound/LatexDocs/figures/exploration_space_visualization.pdf', dpi=300, bbox_inches='tight')
 
 print("Saved: exploration_space_visualization.pdf")
 print("\nKey visualization points:")

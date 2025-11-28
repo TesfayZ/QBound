@@ -160,8 +160,8 @@ print("Saved: results/plots/reward_structure_analysis.pdf")
 
 # Copy to paper directory
 import shutil
-shutil.copy2('results/plots/reward_structure_analysis.pdf', 'QBound/figures/reward_structure_analysis.pdf')
-print("Copied to: QBound/figures/reward_structure_analysis.pdf")
+shutil.copy2('results/plots/reward_structure_analysis.pdf', 'LatexDocs/figures/reward_structure_analysis.pdf')
+print("Copied to: LatexDocs/figures/reward_structure_analysis.pdf")
 
 # === Create Second Figure: Theoretical Q-Value Computation ===
 fig2, axes = plt.subplots(2, 2, figsize=(14, 10))
@@ -244,7 +244,7 @@ plt.savefig('results/plots/q_bound_theory_comparison.pdf', dpi=300, bbox_inches=
 plt.savefig('results/plots/q_bound_theory_comparison.png', dpi=300, bbox_inches='tight')
 print("Saved: results/plots/q_bound_theory_comparison.pdf")
 
-shutil.copy2('results/plots/q_bound_theory_comparison.pdf', 'QBound/figures/q_bound_theory_comparison.pdf')
-print("Copied to: QBound/figures/q_bound_theory_comparison.pdf")
+shutil.copy2('results/plots/q_bound_theory_comparison.pdf', 'LatexDocs/figures/q_bound_theory_comparison.pdf')
+print("Copied to: LatexDocs/figures/q_bound_theory_comparison.pdf")
 
 print("\n✅ All reward structure visualizations generated!")

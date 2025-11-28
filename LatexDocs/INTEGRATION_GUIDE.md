@@ -168,12 +168,12 @@ This guide explains how to integrate the new theoretical analysis and experiment
 
 1. **Backup original:**
    ```bash
-   cp QBound/main.tex QBound/main_backup.tex
+   cp LatexDocs/main.tex LatexDocs/main_backup.tex
    ```
 
 2. **Ensure figures are present:**
    ```bash
-   ls -la QBound/figures/*.pdf
+   ls -la LatexDocs/figures/*.pdf
    # Should show:
    # - reward_structure_analysis.pdf
    # - q_bound_theory_comparison.pdf
@@ -184,7 +184,7 @@ This guide explains how to integrate the new theoretical analysis and experiment
 
 3. **Compile LaTeX:**
    ```bash
-   cd QBound
+   cd LatexDocs
    pdflatex main.tex
    bibtex main
    pdflatex main.tex
@@ -280,7 +280,7 @@ On-policy methods like PPO suffer less from overestimation bias because:
 **Solution:**
 ```bash
 # Ensure figures directory exists
-ls -la QBound/figures/
+ls -la LatexDocs/figures/
 
 # Regenerate if needed
 python3 analysis/multiseed_analysis.py
@@ -292,7 +292,7 @@ python3 analysis/generate_reward_structure_visualization.py
 **Solution:**
 ```bash
 # Check for special characters
-grep -n "[^[:print:]]" QBound/*.tex
+grep -n "[^[:print:]]" LatexDocs/*.tex
 
 # Ensure TikZ package loaded (for decision tree)
 # Add to preamble if missing:
@@ -305,7 +305,7 @@ grep -n "[^[:print:]]" QBound/*.tex
 **Solution:**
 ```bash
 # Run bibtex
-cd QBound
+cd LatexDocs
 bibtex main
 pdflatex main.tex
 pdflatex main.tex
@@ -321,7 +321,7 @@ pdflatex main.tex
 - [ ] 5-seed experimental results added
 - [ ] Discussion section updated with guidelines
 - [ ] Conclusion updated with key findings
-- [ ] All figures present in `QBound/figures/`
+- [ ] All figures present in `LatexDocs/figures/`
 - [ ] LaTeX compiles without errors
 - [ ] PDF generated successfully
 - [ ] References cited correctly

@@ -119,7 +119,7 @@ This revision compares **two implementations of QBound for negative reward envir
    - Summary of changes made
 
 ### Paper
-1. **`QBound/main.tex`**
+1. **`LatexDocs/main.tex`**
    - Abstract (lines 76-82)
    - Section 3.2.3 (lines 375-422)
    - Table: QBound Effectiveness (lines 406-420)

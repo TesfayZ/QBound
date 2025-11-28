@@ -328,7 +328,7 @@ def main():
 
     # Copy plots to LaTeX figures directory for self-contained paper
     print("\n📁 Copying plots to LaTeX figures directory...")
-    latex_figures_dir = 'QBound/figures'
+    latex_figures_dir = 'LatexDocs/figures'
     os.makedirs(latex_figures_dir, exist_ok=True)
 
     import shutil
@@ -344,14 +344,14 @@ def main():
     print("="*70)
     print("\nPlots saved to:")
     print("  • results/plots/ (archive)")
-    print("  • QBound/figures/ (for LaTeX compilation)")
+    print("  • LatexDocs/figures/ (for LaTeX compilation)")
     print("\nGenerated files:")
     print("  • learning_curves_*.png/pdf - Combined 3-panel figure")
     print("  • gridworld_learning_curve_*.png/pdf")
     print("  • frozenlake_learning_curve_*.png/pdf")
     print("  • cartpole_learning_curve_*.png/pdf")
     print("  • comparison_bar_chart_*.png/pdf")
-    print("\n✓ QBound/ directory is now self-contained for Overleaf upload!")
+    print("\n✓ LatexDocs/ directory is now self-contained for Overleaf upload!")
 
 
 if __name__ == "__main__":

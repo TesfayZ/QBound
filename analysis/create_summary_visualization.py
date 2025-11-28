@@ -99,8 +99,8 @@ print("Saved: results/plots/qbound_summary_all_experiments.png")
 
 # Copy to paper directory
 import shutil
-shutil.copy2('results/plots/qbound_summary_all_experiments.pdf', 'QBound/figures/qbound_summary_all_experiments.pdf')
-print("Copied to: QBound/figures/qbound_summary_all_experiments.pdf")
+shutil.copy2('results/plots/qbound_summary_all_experiments.pdf', 'LatexDocs/figures/qbound_summary_all_experiments.pdf')
+print("Copied to: LatexDocs/figures/qbound_summary_all_experiments.pdf")
 
 plt.close()
 
@@ -163,7 +163,7 @@ plt.savefig('results/plots/qbound_category_summary.pdf', dpi=300, bbox_inches='t
 plt.savefig('results/plots/qbound_category_summary.png', dpi=300, bbox_inches='tight')
 print("Saved: results/plots/qbound_category_summary.pdf")
 
-shutil.copy2('results/plots/qbound_category_summary.pdf', 'QBound/figures/qbound_category_summary.pdf')
-print("Copied to: QBound/figures/qbound_category_summary.pdf")
+shutil.copy2('results/plots/qbound_category_summary.pdf', 'LatexDocs/figures/qbound_category_summary.pdf')
+print("Copied to: LatexDocs/figures/qbound_category_summary.pdf")
 
 print("\n✅ Summary visualizations complete!")

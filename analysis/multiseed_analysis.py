@@ -277,7 +277,7 @@ def main():
 
     # Create output directory
     os.makedirs('results/plots', exist_ok=True)
-    os.makedirs('QBound/figures', exist_ok=True)
+    os.makedirs('LatexDocs/figures', exist_ok=True)
 
     all_results = {}
 
@@ -336,9 +336,9 @@ def main():
     # Generate summary table
     generate_summary_table(all_results)
 
-    # Copy key plots to QBound/figures/ for LaTeX
+    # Copy key plots to LatexDocs/figures/ for LaTeX
     print(f"\n{'='*80}")
-    print("COPYING KEY PLOTS TO QBound/figures/")
+    print("COPYING KEY PLOTS TO LatexDocs/figures/")
     print(f"{'='*80}")
 
     import shutil
@@ -350,12 +350,12 @@ def main():
             src_png = f"results/plots/{env_dir}_{exp_name}_multiseed.png"
 
             if os.path.exists(src_pdf):
-                dst_pdf = f"QBound/figures/{env_dir}_{exp_name}_5seed.pdf"
+                dst_pdf = f"LatexDocs/figures/{env_dir}_{exp_name}_5seed.pdf"
                 shutil.copy2(src_pdf, dst_pdf)
                 print(f"  Copied: {dst_pdf}")
 
             if os.path.exists(src_png):
-                dst_png = f"QBound/figures/{env_dir}_{exp_name}_5seed.png"
+                dst_png = f"LatexDocs/figures/{env_dir}_{exp_name}_5seed.png"
                 shutil.copy2(src_png, dst_png)
 
     print(f"\n{'='*80}")
@@ -363,7 +363,7 @@ def main():
     print(f"{'='*80}")
     print(f"\nPlots saved to:")
     print(f"  - results/plots/        (all plots)")
-    print(f"  - QBound/figures/       (key plots for paper)")
+    print(f"  - LatexDocs/figures/       (key plots for paper)")
 
 
 if __name__ == '__main__':

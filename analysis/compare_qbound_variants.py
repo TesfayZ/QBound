@@ -290,7 +290,7 @@ def main():
     plot_summary_bar_chart(results, output_dir)
 
     # Copy to paper directory
-    paper_dir = '/root/projects/QBound/QBound/figures'
+    paper_dir = '/root/projects/QBound/LatexDocs/figures'
     os.makedirs(paper_dir, exist_ok=True)
 
     print(f"\nCopying PDFs to {paper_dir}...")

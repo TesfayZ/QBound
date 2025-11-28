@@ -344,7 +344,7 @@ def main():
     plots_dir = Path("/root/projects/QBound/results/plots")
     plots_dir.mkdir(parents=True, exist_ok=True)
 
-    paper_figures_dir = Path("/root/projects/QBound/QBound/figures")
+    paper_figures_dir = Path("/root/projects/QBound/LatexDocs/figures")
     paper_figures_dir.mkdir(parents=True, exist_ok=True)
 
     # Process each environment
