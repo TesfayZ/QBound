@@ -1,6 +1,6 @@
 # QBound: Environment-Aware Q-Value Bounds for Stable Temporal Difference Learning
 
-[![Paper](https://img.shields.io/badge/Paper-PDF-red)](QBound/main.pdf)
+[![Paper](https://img.shields.io/badge/Paper-PDF-red)](LatexDocs/main.pdf)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8+-green.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-1.9+-orange.svg)](https://pytorch.org/)
@@ -28,7 +28,7 @@ Value-based reinforcement learning methods suffer from overestimation bias ([Thr
 - **Sparse terminal rewards** (GridWorld, FrozenLake): No benefit—bounds trivially satisfied
 - **Negligible overhead**: <2% computational cost
 
-[Read the current draft (PDF)](QBound/main.pdf)
+[Read the current draft (PDF)](LatexDocs/main.pdf)
 
 ---
 
@@ -248,7 +248,7 @@ python analysis/plot_pendulum_and_ppo.py
 
 # Plots will be saved to:
 # - results/plots/
-# - QBound/figures/ (for paper)
+# - LatexDocs/figures/ (for paper)
 ```
 
 ---
@@ -290,7 +290,7 @@ QBound/
 │   ├── ppo/                     # PPO results
 │   └── plots/                   # Generated visualizations
 │
-├── QBound/                       # Paper directory
+├── LatexDocs/                    # Paper directory
 │   ├── main.tex                 # LaTeX source
 │   ├── main.pdf                 # Compiled paper (45 pages)
 │   ├── references.bib           # Bibliography
@@ -473,7 +473,7 @@ python analysis/analyze_all_6way_results.py
 python analysis/plot_pendulum_and_ppo.py
 
 # 4. Compile paper (requires LaTeX)
-cd QBound
+cd LatexDocs
 pdflatex main.tex
 bibtex main
 pdflatex main.tex
@@ -621,7 +621,7 @@ These are **fundamental limitations based on reward structure**, not implementat
 
 ## 📚 Documentation
 
-- **[Paper (main.pdf)](QBound/main.pdf)** - Complete research paper (45 pages)
+- **[Paper (main.pdf)](LatexDocs/main.pdf)** - Complete research paper (45 pages)
 - **[Implementation Verification](QBOUND_IMPLEMENTATION_VERIFICATION.md)** - Code verification
 - **[Verification Summary](QBOUND_VERIFICATION_SUMMARY.md)** - Quick reference
 - **[Soft QBound Guide](docs/SOFT_QBOUND.md)** - Detailed soft QBound explanation

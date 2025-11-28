@@ -99,7 +99,7 @@ def plot_pendulum_6way():
     print(f"   ✓ Saved: {output_file.name}")
 
     # Copy to paper directory
-    paper_file = Path("QBound/figures/pendulum_6way_results.png")
+    paper_file = Path("LatexDocs/figures/pendulum_6way_results.png")
     paper_file.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(paper_file, dpi=150, bbox_inches='tight')
     print(f"   ✓ Copied to paper: {paper_file.name}")
@@ -171,7 +171,7 @@ def plot_ppo_results():
     print(f"   ✓ Saved: {output_file.name}")
 
     # Copy to paper directory
-    paper_file = Path("QBound/figures/ppo_continuous_comparison.png")
+    paper_file = Path("LatexDocs/figures/ppo_continuous_comparison.png")
     paper_file.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(paper_file, dpi=150, bbox_inches='tight')
     print(f"   ✓ Copied to paper: {paper_file.name}")
@@ -236,7 +236,7 @@ def main():
     print("Analysis Complete!")
     print("="*80)
     print("\n📂 Plots saved to: /root/projects/QBound/results/plots")
-    print("📂 Paper figures: /root/projects/QBound/QBound/figures")
+    print("📂 Paper figures: /root/projects/QBound/LatexDocs/figures")
 
 if __name__ == "__main__":
     main()

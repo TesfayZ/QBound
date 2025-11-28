@@ -274,7 +274,7 @@ def plot_comparison_bars(all_analysis, output_dir):
     """Generate bar charts comparing methods."""
 
     os.makedirs(output_dir, exist_ok=True)
-    os.makedirs('QBound/figures', exist_ok=True)
+    os.makedirs('LatexDocs/figures', exist_ok=True)
 
     # CartPole comparison
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
@@ -317,7 +317,7 @@ def plot_comparison_bars(all_analysis, output_dir):
     plt.tight_layout()
     plt.savefig(f'{output_dir}/cartpole_comparison.pdf', dpi=300, bbox_inches='tight')
     plt.savefig(f'{output_dir}/cartpole_comparison.png', dpi=300, bbox_inches='tight')
-    plt.savefig('QBound/figures/cartpole_comparison.pdf', dpi=300, bbox_inches='tight')
+    plt.savefig('LatexDocs/figures/cartpole_comparison.pdf', dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Saved: {output_dir}/cartpole_comparison.pdf")
 
@@ -361,7 +361,7 @@ def plot_comparison_bars(all_analysis, output_dir):
     plt.tight_layout()
     plt.savefig(f'{output_dir}/pendulum_comparison.pdf', dpi=300, bbox_inches='tight')
     plt.savefig(f'{output_dir}/pendulum_comparison.png', dpi=300, bbox_inches='tight')
-    plt.savefig('QBound/figures/pendulum_comparison.pdf', dpi=300, bbox_inches='tight')
+    plt.savefig('LatexDocs/figures/pendulum_comparison.pdf', dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Saved: {output_dir}/pendulum_comparison.pdf")
 
@@ -407,7 +407,7 @@ def plot_comparison_bars(all_analysis, output_dir):
     plt.tight_layout()
     plt.savefig(f'{output_dir}/sparse_comparison.pdf', dpi=300, bbox_inches='tight')
     plt.savefig(f'{output_dir}/sparse_comparison.png', dpi=300, bbox_inches='tight')
-    plt.savefig('QBound/figures/sparse_comparison.pdf', dpi=300, bbox_inches='tight')
+    plt.savefig('LatexDocs/figures/sparse_comparison.pdf', dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Saved: {output_dir}/sparse_comparison.pdf")
 
@@ -462,7 +462,7 @@ def plot_learning_curves(all_analysis, output_dir):
 
         plt.tight_layout()
         plt.savefig(f'{output_dir}/cartpole_dqn_learning_curves.pdf', dpi=300, bbox_inches='tight')
-        plt.savefig('QBound/figures/cartpole_dqn_learning_curves.pdf', dpi=300, bbox_inches='tight')
+        plt.savefig('LatexDocs/figures/cartpole_dqn_learning_curves.pdf', dpi=300, bbox_inches='tight')
         plt.close()
         print(f"Saved: {output_dir}/cartpole_dqn_learning_curves.pdf")
 
@@ -506,7 +506,7 @@ def plot_learning_curves(all_analysis, output_dir):
 
         plt.tight_layout()
         plt.savefig(f'{output_dir}/pendulum_ddpg_learning_curves.pdf', dpi=300, bbox_inches='tight')
-        plt.savefig('QBound/figures/pendulum_ddpg_learning_curves.pdf', dpi=300, bbox_inches='tight')
+        plt.savefig('LatexDocs/figures/pendulum_ddpg_learning_curves.pdf', dpi=300, bbox_inches='tight')
         plt.close()
         print(f"Saved: {output_dir}/pendulum_ddpg_learning_curves.pdf")
 

@@ -396,7 +396,7 @@ Architectural constraint Q = -softplus(logits):
 - ✓ `docs/FINAL_COMPREHENSIVE_ANALYSIS.md` - This document
 
 ### Paper Updates
-- ✓ `QBound/main.tex` - Abstract corrected with actual results
+- ✓ `LatexDocs/main.tex` - Abstract corrected with actual results
 - ⚠️ Still needs: Results section updates, failure analysis section, revised recommendations
 
 ### Visualizations

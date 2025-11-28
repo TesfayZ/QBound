@@ -77,7 +77,7 @@ def generate_table_rows(results):
 
 def update_paper(results):
     """Update the main.tex file with real results."""
-    paper_path = 'QBound/main.tex'
+    paper_path = 'LatexDocs/main.tex'
 
     if not os.path.exists(paper_path):
         print(f"Paper not found at {paper_path}")
@@ -110,7 +110,7 @@ def update_paper(results):
     )
 
     # Write back to file
-    backup_path = f'QBound/main.tex.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+    backup_path = f'LatexDocs/main.tex.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
     print(f"Creating backup at {backup_path}")
     with open(backup_path, 'w') as f:
         f.write(content)
@@ -167,7 +167,7 @@ def main():
     if update_paper(results):
         print("\n✓ Paper successfully updated with real experimental results!")
         print("\nNext steps:")
-        print("1. Review the updated table in QBound/main.tex")
+        print("1. Review the updated table in LatexDocs/main.tex")
         print("2. Compile the LaTeX document to check formatting")
         print("3. Add any additional analysis or discussion based on results")
     else:

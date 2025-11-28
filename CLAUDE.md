@@ -388,10 +388,10 @@ See `docs/ANALYSIS_SUMMARY.md` for detailed analysis.
 
 ### Self-Contained LaTeX Directory
 
-The `QBound/` directory is designed to be **self-contained** for easy upload to Overleaf or other LaTeX platforms:
+The `LatexDocs/` directory is designed to be **self-contained** for easy upload to Overleaf or other LaTeX platforms:
 
 ```
-QBound/
+LatexDocs/
 ├── main.tex              # Main paper file
 ├── references.bib        # Bibliography
 ├── arxiv.sty            # ArXiv style file
@@ -410,17 +410,17 @@ QBound/
 ```bash
 # This will:
 # 1. Generate plots in results/plots/
-# 2. Copy PDFs to QBound/figures/ for LaTeX
+# 2. Copy PDFs to LatexDocs/figures/ for LaTeX
 python3 analysis/plot_paper_results.py
 ```
 
 ### Uploading to Overleaf
 
-Simply zip and upload the entire `QBound/` directory:
+Simply zip and upload the entire `LatexDocs/` directory:
 
 ```bash
 # From project root
-zip -r qbound_paper.zip QBound/
+zip -r qbound_paper.zip LatexDocs/
 # Upload qbound_paper.zip to Overleaf
 ```
 
@@ -429,7 +429,7 @@ All figure references in `main.tex` use relative paths: `figures/filename.pdf`
 ### LaTeX Compilation
 
 ```bash
-cd QBound
+cd LatexDocs
 pdflatex main.tex
 bibtex main
 pdflatex main.tex
@@ -444,8 +444,8 @@ See `docs/EXPERIMENT_ORGANIZATION.md` for complete documentation on experiment o
 
 ### Key Reminders:
 
-- **Plots must be in QBound/figures/**: Always run `plot_paper_results.py` after experiments to copy plots to the LaTeX directory
-- **Self-contained paper**: The QBound/ folder should be uploadable as-is to Overleaf
+- **Plots must be in LatexDocs/figures/**: Always run `plot_paper_results.py` after experiments to copy plots to the LaTeX directory
+- **Self-contained paper**: The LatexDocs/ folder should be uploadable as-is to Overleaf
 - **Data preservation**: Raw data in `results/` folders is preserved so plots can be regenerated if needed (e.g., for rebranding)
 - **Git commits**: Use git to maintain different versions when experiment settings change
 - **LaTeX paths**: All figure paths in main.tex are relative: `figures/filename.pdf` (NOT `../results/plots/`)

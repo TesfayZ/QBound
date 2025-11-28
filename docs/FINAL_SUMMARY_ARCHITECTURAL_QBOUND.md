@@ -297,7 +297,7 @@ All results remain the same (data didn't change, only explanation):
 
 ## Files Updated (Final Version)
 
-1. `QBound/main.tex` - All gradient flow references replaced
+1. `LatexDocs/main.tex` - All gradient flow references replaced
 2. `docs/QBOUND_CLIPPING_VS_ARCHITECTURAL.md` - Updated explanation
 3. `docs/FINAL_SUMMARY_ARCHITECTURAL_QBOUND.md` - This document
 4. Paper compiles successfully (56 pages)

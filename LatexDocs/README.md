@@ -5,7 +5,7 @@ This directory contains the complete LaTeX source for the QBound paper, ready fo
 ## Directory Structure
 
 ```
-QBound/
+LatexDocs/
 ├── main.tex              # Main paper file
 ├── references.bib        # Bibliography
 ├── arxiv.sty            # ArXiv style file
@@ -33,7 +33,7 @@ pdflatex main.tex
 
 1. Create a ZIP file of this directory:
    ```bash
-   zip -r qbound_paper.zip QBound/
+   zip -r qbound_paper.zip LatexDocs/
    ```
 
 2. Upload `qbound_paper.zip` to Overleaf as a new project
@@ -74,7 +74,7 @@ python3 analysis/plot_paper_results.py
 This will:
 1. Load results from `results/combined/experiment_results_*.json`
 2. Generate plots in `results/plots/`
-3. **Automatically copy PDFs to `QBound/figures/`**
+3. **Automatically copy PDFs to `LatexDocs/figures/`**
 
 ## Notes
 

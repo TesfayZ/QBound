@@ -37,7 +37,7 @@ The QBound paper has been updated to camera-ready quality with the following imp
 
 4. **Document Quality**
    - PDF compiles successfully (56 pages, 428 KB)
-   - 26 figures available in QBound/figures/
+   - 26 figures available in LatexDocs/figures/
    - Bibliography compiles (7 minor warnings, non-blocking)
    - Document structure intact
 
@@ -131,9 +131,9 @@ Minor bibliography warnings can be fixed quickly if needed, but do not block sub
 
 ## File Locations
 
-- **Main paper:** `/root/projects/QBound/QBound/main.tex`
-- **Compiled PDF:** `/root/projects/QBound/QBound/main.pdf` (56 pages, 428 KB)
-- **Figures:** `/root/projects/QBound/QBound/figures/` (26 PDF files)
+- **Main paper:** `/root/projects/QBound/LatexDocs/main.tex`
+- **Compiled PDF:** `/root/projects/QBound/LatexDocs/main.pdf` (56 pages, 428 KB)
+- **Figures:** `/root/projects/QBound/LatexDocs/figures/` (26 PDF files)
 - **Correct analysis:** `/root/projects/QBound/docs/FINAL_COMPREHENSIVE_ANALYSIS.md`
 - **Experimental data:** `/root/projects/QBound/results/pendulum/*.json` (25 files, 5 seeds × 5 algorithms)
 
