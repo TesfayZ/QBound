@@ -1,58 +1,123 @@
-# QBound: Q-Value Bounding for Deep Reinforcement Learning
+# QBound: Environment-Aware Q-Value Bounds for Stable Temporal Difference Learning
 
 [![Paper](https://img.shields.io/badge/Paper-PDF-red)](QBound/main.pdf)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8+-green.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-1.9+-orange.svg)](https://pytorch.org/)
+[![Status](https://img.shields.io/badge/Status-Work%20in%20Progress-yellow.svg)]()
 
-A comprehensive implementation and evaluation of **QBound**, a technique for bounding Q-values in deep reinforcement learning to improve learning stability and performance.
+> ⚠️ **Work in Progress**: This is ongoing research. Contributions, experiments, and feedback are welcome!
 
-## 📄 Paper
+A comprehensive implementation and evaluation of **QBound**, a stabilization mechanism that exploits environment structure to prevent overestimation bias in deep reinforcement learning by deriving and enforcing Q-value bounds from known reward structures.
 
-**QBound: Principled Value Bounding for Deep Q-Learning**
+## 📄 Research Paper (Draft)
 
-The paper demonstrates that **soft QBound** (differentiable soft clipping) successfully:
-- Replaces target networks in DDPG (+712% improvement)
-- Enhances standard DDPG (+5% improvement)
-- Works across DQN, DDQN, Dueling DQN architectures
-- Extends to policy gradient methods (PPO) with environment-specific effectiveness
+**QBound: Environment-Aware Q-Value Bounds for Stable Temporal Difference Learning**
 
-[Read the full paper](QBound/main.pdf)
+*Tesfay*
+
+> **Note**: This paper is a working draft documenting current findings. Several open questions remain, particularly regarding negative reward environments.
+
+Value-based reinforcement learning methods suffer from overestimation bias ([Thrun & Schwartz, 1993](https://proceedings.neurips.cc/paper/1993); [Van Hasselt et al., 2016](https://arxiv.org/abs/1509.06461)), where bootstrapped Q-value estimates systematically exceed true values. QBound addresses this at the source by clipping next-state Q-values to environment-specific bounds [Q_min, Q_max].
+
+**Scope:** QBound targets *off-policy* value-based methods (DQN, DDQN, Dueling DQN) and off-policy actor-critic methods (DDPG, TD3) that use experience replay. On-policy methods (e.g., PPO, A2C, REINFORCE) are outside QBound's scope because they do not suffer from the same overestimation dynamics.
+
+**Key Findings:**
+- **Positive dense rewards** (CartPole-style): 12-34% improvement across DQN variants
+- **Negative rewards** (Pendulum-style): Generally degrades DQN; architectural QBound works for DDPG/TD3 (+4-7%)
+- **Negligible overhead**: <2% computational cost
+
+[Read the current draft (PDF)](QBound/main.pdf)
 
 ---
 
 ## 🎯 Key Features
 
-- **Soft QBound**: Differentiable soft clipping preserving gradients for continuous control
-- **Hard QBound**: Direct clipping for discrete action spaces
+- **Hard QBound**: Direct clipping for discrete action spaces (DQN, DDQN, Dueling DQN)
+- **Architectural QBound**: Output activation constraints for continuous control (DDPG, TD3)
 - **Dynamic Bounds**: Step-aware bounds for dense positive rewards
-- **Comprehensive Evaluation**: 7 environments, 4 algorithm families
+- **Comprehensive Evaluation**: 8 environments, off-policy algorithms
 - **Verified Implementation**: All bounds mathematically proven correct
 
 ---
 
 ## 📊 Quick Results Summary
 
-### DQN-Based Methods (Discrete Actions)
+**40 experimental runs** (8 environments × 5 seeds) reveal reward-sign dependent effectiveness:
 
-| Environment | Best Method | Improvement | Bound Type |
-|-------------|-------------|-------------|------------|
-| **GridWorld** | Dynamic QBound + DDQN | +87.5% | Static/Dynamic |
-| **FrozenLake** | Static QBound + DQN | +282% | Static |
-| **CartPole** | Baseline DQN | -21% (DDQN fails) | Static/Dynamic |
-| **LunarLander** | Dynamic QBound + DQN | +469% | Static |
+### Positive Dense Rewards (QBound Recommended ✅)
 
-### Continuous Control (Actor-Critic)
+| Environment | Algorithm | Improvement | Notes |
+|-------------|-----------|-------------|-------|
+| **CartPole** | DQN | +12% | Consistent improvement |
+| **CartPole** | DDQN | +33.6% | Best improvement |
+| **CartPole** | Dueling DQN | +22.5% | Works with dueling architecture |
 
-| Method | Environment | Result | Implementation |
-|--------|-------------|--------|----------------|
-| **DDPG** | Pendulum | +5% (best) | Soft QBound |
-| **Simple DDPG** | Pendulum | +712% (replaces targets!) | Soft QBound |
-| **TD3** | Pendulum | -600% (conflicts) | Soft QBound |
-| **PPO** | LunarLander Cont. | +30.6% ✅ | Soft QBound |
-| **PPO** | Pendulum | -162% ❌ | Soft QBound |
+### Negative Rewards (Off-Policy Actor-Critic with Architectural QBound)
 
-**Key Insight**: Soft QBound can partially **replace target networks** in DDPG, achieving competitive performance without this complex stabilization mechanism.
+| Environment | Algorithm | Result | Notes |
+|-------------|-----------|--------|-------|
+| **Pendulum** | DQN | -7.0% | Hard QBound degrades performance |
+| **Pendulum** | DDPG | +4.8% | Architectural QBound works |
+| **Pendulum** | TD3 | +7.2% | Architectural QBound works |
+
+### Sparse Rewards (Mixed Results)
+
+| Environment | Algorithm | Improvement | Notes |
+|-------------|-----------|-------------|-------|
+| **GridWorld** | DDQN | +87.5% | Works for sparse terminal rewards |
+| **FrozenLake** | DQN | +282% | Strong improvement |
+| **LunarLander** | DQN | +263.9% | Excellent for shaped sparse rewards |
+
+**Key Insight**: QBound's effectiveness fundamentally depends on **reward sign**. Neural networks with linear output layers have no architectural constraint on positive values, making explicit upper bounds essential for positive rewards. For negative rewards, hard QBound can interfere with learning dynamics; architectural enforcement (softplus clipping) works better for actor-critic methods. Future work will investigate Q-value transformation approaches to unify bounding across reward structures.
+
+**Scope Note**: On-policy methods (PPO, A2C, REINFORCE) are outside QBound's scope. These methods naturally suffer less from overestimation bias because they use recent on-policy samples, have no max operator in value updates, and include built-in value stabilization mechanisms.
+
+---
+
+## 📐 Theoretical Background
+
+### The Overestimation Problem
+
+In temporal difference learning ([Sutton & Barto, 2018](http://incompleteideas.net/book/the-book-2nd.html)), Q-values are updated via bootstrapping:
+
+```
+Q(s,a) ← r + γ · max_a' Q(s', a')
+```
+
+[Thrun & Schwartz (1993)](https://www.ri.cmu.edu/pub_files/pub1/thrun_sebastian_1993_1/thrun_sebastian_1993_1.pdf) identified that this max operator introduces **overestimation bias** when Q-values contain approximation errors. With function approximation, errors compound through bootstrapping, causing Q-values to diverge ([Tsitsiklis & Van Roy, 1997](https://ieeexplore.ieee.org/document/580874)).
+
+### QBound Solution
+
+QBound exploits known environment structure to derive **theoretically justified bounds**:
+
+**For positive rewards (r ≥ 0):**
+```
+Q_max = Σ_{t=0}^{H-1} γ^t · r_max = r_max · (1 - γ^H) / (1 - γ)
+Q_min = 0
+```
+
+**For negative rewards (r ≤ 0):**
+```
+Q_max = 0
+Q_min = r_min · (1 - γ^H) / (1 - γ)
+```
+
+**Core mechanism:** Clip next-state Q-values during bootstrapping:
+```
+Q_target = r + γ · clip(Q(s', a'), Q_min, Q_max)
+```
+
+This prevents overestimation **at its source** while preserving gradient flow for learning.
+
+### Relationship to Prior Work
+
+| Method | Mechanism | Limitation |
+|--------|-----------|------------|
+| **Target Networks** ([Mnih et al., 2015](https://www.nature.com/articles/nature14236)) | Delayed updates | Doesn't prevent overestimation, only slows it |
+| **Double Q-learning** ([Van Hasselt et al., 2016](https://arxiv.org/abs/1509.06461)) | Decoupled selection/evaluation | Can underestimate; generic pessimism |
+| **Clipped Double-Q** ([Fujimoto et al., 2018](https://arxiv.org/abs/1802.09477)) | Min of two critics | Excessive pessimism possible |
+| **QBound** (this work) | Environment-specific bounds | Precise bounds, reward-sign dependent |
 
 ---
 
@@ -484,10 +549,20 @@ Q_clipped = softplus_clip(Q, Q_min, Q_max, beta=1.0)
 ## 🐛 Known Limitations
 
 1. **TD3 Conflict**: QBound conflicts with TD3's clipped double-Q mechanism
-2. **PPO Dense Rewards**: QBound conflicts with GAE on dense reward tasks
+2. **Negative Rewards**: Hard QBound degrades performance for DQN on negative reward environments (Pendulum)
 3. **DDQN CartPole**: Double-Q pessimism hurts dense positive reward learning
 
 These are **fundamental algorithmic interactions**, not implementation bugs.
+
+---
+
+## 🔮 Future Work
+
+1. **Transformed Q-Values for Negative Rewards**: Investigate whether transforming Q-values to positive space (e.g., Q' = Q - Q_min) allows hard QBound to work effectively on negative reward environments. This could unify the bounding approach across all reward structures.
+
+2. **Adaptive Bound Tightening**: Explore dynamically tightening bounds as learning progresses based on observed Q-value distributions.
+
+3. **Extension to Model-Based RL**: Apply QBound principles to model-based methods where environment structure is learned rather than given.
 
 ---
 
@@ -502,13 +577,26 @@ These are **fundamental algorithmic interactions**, not implementation bugs.
 
 ## 🤝 Contributing
 
-Contributions welcome! Please:
+This is an **open research project** and contributions are highly encouraged! Areas where help is needed:
 
+### Open Research Questions
+- **Why does QBound work for positive but not negative rewards?** This is the central open question
+- **Q-value transformation**: Can transforming negative Q-values to positive space unify the approach?
+- **Other environments**: Testing QBound on additional benchmarks (Atari, MuJoCo, etc.)
+
+### How to Contribute
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+### Ideas for Contributions
+- Run experiments with different seeds or hyperparameters
+- Test on new environments
+- Investigate the negative reward problem
+- Improve documentation
+- Add visualizations or analysis tools
 
 ---
 
@@ -517,9 +605,9 @@ Contributions welcome! Please:
 If you use this code in your research, please cite:
 
 ```bibtex
-@article{qbound2025,
-  title={QBound: Principled Value Bounding for Deep Q-Learning},
-  author={...},
+@article{tesfay2025qbound,
+  title={QBound: Environment-Aware Q-Value Bounds for Stable Temporal Difference Learning},
+  author={Tesfay},
   journal={arXiv preprint},
   year={2025}
 }
@@ -527,11 +615,56 @@ If you use this code in your research, please cite:
 
 ---
 
+## 📚 References
+
+QBound builds upon foundational work in reinforcement learning. Key references include:
+
+### Foundational RL
+
+- **Sutton & Barto (2018)** - [Reinforcement Learning: An Introduction](http://incompleteideas.net/book/the-book-2nd.html) - The definitive textbook on RL theory and algorithms
+- **Watkins & Dayan (1992)** - [Q-learning](https://link.springer.com/article/10.1007/BF00992698) - Original Q-learning algorithm with convergence proofs
+- **Bellman (1957)** - [A Markovian Decision Process](https://www.jstor.org/stable/24900506) - Foundation of dynamic programming and the Bellman equation
+
+### Deep Q-Learning
+
+- **Mnih et al. (2015)** - [Human-level control through deep reinforcement learning](https://www.nature.com/articles/nature14236) - DQN: Deep Q-Networks with experience replay and target networks
+- **Van Hasselt et al. (2016)** - [Deep Reinforcement Learning with Double Q-learning](https://arxiv.org/abs/1509.06461) - Double DQN addressing overestimation bias
+- **Wang et al. (2016)** - [Dueling Network Architectures for Deep RL](https://arxiv.org/abs/1511.06581) - Dueling DQN with separate value and advantage streams
+- **Hessel et al. (2018)** - [Rainbow: Combining Improvements in Deep RL](https://arxiv.org/abs/1710.02298) - Combining multiple DQN improvements
+
+### Actor-Critic Methods
+
+- **Lillicrap et al. (2015)** - [Continuous Control with Deep RL (DDPG)](https://arxiv.org/abs/1509.02971) - Deep deterministic policy gradient for continuous control
+- **Fujimoto et al. (2018)** - [Addressing Function Approximation Error (TD3)](https://arxiv.org/abs/1802.09477) - Twin Delayed DDPG with clipped double-Q
+- **Haarnoja et al. (2018)** - [Soft Actor-Critic](https://arxiv.org/abs/1801.01290) - Maximum entropy RL for continuous control
+- **Schulman et al. (2017)** - [Proximal Policy Optimization](https://arxiv.org/abs/1707.06347) - PPO: stable policy gradient with clipped objectives
+
+### Overestimation and Stability
+
+- **Thrun & Schwartz (1993)** - [Issues in Using Function Approximation for RL](https://www.ri.cmu.edu/pub_files/pub1/thrun_sebastian_1993_1/thrun_sebastian_1993_1.pdf) - First identification of overestimation bias
+- **Tsitsiklis & Van Roy (1997)** - [Analysis of TD Learning with Function Approximation](https://ieeexplore.ieee.org/document/580874) - Theoretical analysis of TD convergence
+- **Kumar et al. (2020)** - [Conservative Q-Learning for Offline RL](https://arxiv.org/abs/2006.04779) - CQL: pessimistic value bounds for offline RL
+
+### Related Recent Work
+
+- **Liu et al. (2024)** - [Boosting Soft Q-Learning by Bounding](https://arxiv.org/abs/2406.18033) - Soft Q-learning with value bounds
+- **Adamczyk et al. (2023)** - [Bounding Optimal Value in Compositional RL](https://arxiv.org/abs/2303.02557) - Value bounds in compositional settings
+- **Wang et al. (2024)** - [Adaptive Pessimism via Target Q-value](https://www.sciencedirect.com/journal/neural-networks) - Adaptive bounds for offline RL
+
+### Tools and Benchmarks
+
+- **Brockman et al. (2016)** - [OpenAI Gym](https://arxiv.org/abs/1606.01540) - Standard RL benchmark environments
+- **Raffin et al. (2021)** - [Stable-Baselines3](https://jmlr.org/papers/v22/20-1364.html) - Reliable RL implementations
+
+---
+
 ## 📧 Contact
 
+**Author:** Tesfay
+**Email:** tzemuy13@gmail.com
+
 For questions or issues:
-- Open an [Issue](https://github.com/yourusername/QBound/issues)
-- Contact: [your.email@example.com]
+- Open an [Issue](https://github.com/tzemuy13/QBound/issues)
 
 ---
 
@@ -544,13 +677,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - Built with [PyTorch](https://pytorch.org/)
-- Environments from [Gymnasium](https://gymnasium.farama.org/)
+- Environments from [Gymnasium](https://gymnasium.farama.org/) (formerly OpenAI Gym)
+- Theoretical foundations from [Sutton & Barto (2018)](http://incompleteideas.net/book/the-book-2nd.html)
 - Inspired by constrained optimization methods from [Boyd & Vandenberghe (2004)](https://web.stanford.edu/~boyd/cvxbook/)
-
----
-
-## ⭐ Star History
-
-If you find this project useful, please consider starring it on GitHub!
-
-[![Star History Chart](https://api.star-history.com/svg?repos=yourusername/QBound&type=Date)](https://star-history.com/#yourusername/QBound&Date)

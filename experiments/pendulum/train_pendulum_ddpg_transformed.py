@@ -280,6 +280,8 @@ def main():
             use_qbound=True,
             qbound_min_original=QBOUND_MIN_ORIGINAL,
             qbound_max_original=QBOUND_MAX_ORIGINAL,
+            use_soft_clip=True,   # CRITICAL: Use soft clipping for DDPG
+            soft_clip_beta=0.1,   # Steepness parameter (same as regular DDPG)
             device='cpu'
         )
 

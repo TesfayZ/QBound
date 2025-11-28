@@ -14,6 +14,7 @@ Key Insight for Continuous Control (DDPG/TD3):
 - Critic Q-values are transformed: Q ∈ [Q_min, 0] → Q ∈ [0, |Q_min|]
 - Actor policy gradients computed on transformed Q-values
 - Same transformation as DQN, adapted for actor-critic
+- CRITICAL: Uses SOFT clipping to preserve gradients for actor learning
 
 Example: Pendulum
 - Original: Q ∈ [-1409, 0]
@@ -31,6 +32,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 from collections import deque
 import random
+
+from soft_qbound_penalty import SoftQBoundPenalty
 
 
 class ReplayBuffer:
@@ -144,6 +147,8 @@ class TransformedDDPGAgent:
         use_qbound=False,
         qbound_min_original=-1409.0,  # Original Q_min (e.g., -1409 for Pendulum)
         qbound_max_original=0.0,       # Original Q_max (typically 0 for negative rewards)
+        use_soft_clip=True,            # CRITICAL: Use soft clipping for DDPG
+        soft_clip_beta=0.1,            # Steepness parameter for soft clipping
         hidden_dims=[400, 300],
         device='cpu'
     ):
@@ -151,6 +156,8 @@ class TransformedDDPGAgent:
         Args:
             qbound_min_original: Original Q_min (typically negative)
             qbound_max_original: Original Q_max (typically 0 for negative rewards)
+            use_soft_clip: Whether to use soft clipping (True) or hard clipping (False)
+            soft_clip_beta: Steepness of soft clipping (higher = closer to hard clip)
         """
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -159,7 +166,12 @@ class TransformedDDPGAgent:
         self.tau = tau
         self.batch_size = batch_size
         self.use_qbound = use_qbound
+        self.use_soft_clip = use_soft_clip
+        self.soft_clip_beta = soft_clip_beta
         self.device = torch.device(device)
+
+        # Initialize soft clipping function
+        self.penalty_fn = SoftQBoundPenalty()
 
         # Compute transformation shift
         self.abs_qmin = abs(qbound_min_original)
@@ -172,6 +184,7 @@ class TransformedDDPGAgent:
         print(f"   Original bounds: Q ∈ [{qbound_min_original:.2f}, {qbound_max_original:.2f}]")
         print(f"   Shift amount: +{self.abs_qmin:.2f}")
         print(f"   Transformed bounds: Q ∈ [{self.qbound_min_transformed:.2f}, {self.qbound_max_transformed:.2f}]")
+        print(f"   Clipping type: {'SOFT (preserves gradients)' if use_soft_clip else 'HARD'}")
 
         # Networks
         self.actor = Actor(state_dim, action_dim, max_action, hidden_dims).to(self.device)
@@ -262,7 +275,13 @@ class TransformedDDPGAgent:
                 violation_magnitude_min_next = torch.relu(qbound_min - next_q_transformed)
 
                 # Clip next Q-values in transformed space
-                next_q_clipped = torch.clamp(next_q_transformed, qbound_min, qbound_max)
+                # Use SOFT clipping for DDPG to preserve gradients!
+                if self.use_soft_clip:
+                    next_q_clipped = self.penalty_fn.softplus_clip(
+                        next_q_transformed, qbound_min, qbound_max, beta=self.soft_clip_beta
+                    )
+                else:
+                    next_q_clipped = torch.clamp(next_q_transformed, qbound_min, qbound_max)
             else:
                 next_q_clipped = next_q_transformed
 
@@ -283,7 +302,13 @@ class TransformedDDPGAgent:
                 violation_magnitude_min_target = torch.relu(qbound_min - target_q_transformed)
 
                 # Final clip in transformed space
-                target_q = torch.clamp(target_q_transformed, qbound_min, qbound_max)
+                # Use SOFT clipping for DDPG to preserve gradients!
+                if self.use_soft_clip:
+                    target_q = self.penalty_fn.softplus_clip(
+                        target_q_transformed, qbound_min, qbound_max, beta=self.soft_clip_beta
+                    )
+                else:
+                    target_q = torch.clamp(target_q_transformed, qbound_min, qbound_max)
 
                 # Violation statistics
                 violation_stats = {
@@ -318,7 +343,17 @@ class TransformedDDPGAgent:
         # ========== Update Actor ==========
         # Actor loss: maximize Q-value (transformed space)
         actor_actions = self.actor(states)
-        actor_loss = -self.critic(states, actor_actions).mean()
+        q_for_actor = self.critic(states, actor_actions)
+
+        # Apply soft clipping to preserve gradients during policy improvement
+        if self.use_qbound and self.use_soft_clip:
+            qbound_max = torch.tensor(self.qbound_max_transformed, device=self.device)
+            qbound_min = torch.tensor(self.qbound_min_transformed, device=self.device)
+            q_for_actor = self.penalty_fn.softplus_clip(
+                q_for_actor, qbound_min, qbound_max, beta=self.soft_clip_beta
+            )
+
+        actor_loss = -q_for_actor.mean()
 
         # Update actor
         self.actor_optimizer.zero_grad()

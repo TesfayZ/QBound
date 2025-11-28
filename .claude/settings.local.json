@@ -8,7 +8,19 @@
       "Bash(pdflatex:*)",
       "Bash(bibtex:*)",
       "Bash(pdfinfo:*)",
-      "Bash(/dev/null)"
+      "Bash(/dev/null)",
+      "Bash(git show:*)",
+      "Bash(experiments/pendulum/train_pendulum_ddpg_full_qbound.py)",
+      "Bash(experiments/pendulum/train_pendulum_td3_full_qbound.py)",
+      "Bash(experiments/pendulum/train_pendulum_dqn_full_qbound.py)",
+      "Bash(timeout 60 python3:*)",
+      "Bash(mkdir:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git fetch:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []
