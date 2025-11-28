@@ -676,6 +676,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
+This research was conducted by Tesfay with [Claude](https://claude.ai) (Anthropic) serving as an AI coding and research assistant. Claude assisted with code implementation, experimental design, data analysis, and manuscript preparation. All research direction, core ideas, and final decisions were made by the author.
+
+**Tools and Resources:**
 - Built with [PyTorch](https://pytorch.org/)
 - Environments from [Gymnasium](https://gymnasium.farama.org/) (formerly OpenAI Gym)
 - Theoretical foundations from [Sutton & Barto (2018)](http://incompleteideas.net/book/the-book-2nd.html)
