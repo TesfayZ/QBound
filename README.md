@@ -192,6 +192,34 @@ bash run_all_experiments_sequential.sh
 bash experiments/run_all_6way_experiments.sh
 ```
 
+### Multi-Seed Experiments with Crash Recovery
+
+The organized experiment runner supports multiple seeds and automatic crash recovery:
+
+```bash
+# Run ALL experiments with 5 seeds (recommended for statistical significance)
+python experiments/run_all_organized_experiments.py --seeds 42 43 44 45 46
+
+# Run with single seed (quick test)
+python experiments/run_all_organized_experiments.py --seed 42
+
+# Run only specific experiment categories
+python experiments/run_all_organized_experiments.py --category timestep   # CartPole, Pendulum
+python experiments/run_all_organized_experiments.py --category sparse     # GridWorld, FrozenLake, etc.
+
+# Dry run (preview what would execute)
+python experiments/run_all_organized_experiments.py --dry-run
+
+# Crash Recovery: If interrupted, simply re-run the same command
+# The script automatically skips completed experiments and continues
+```
+
+**Features:**
+- Automatic crash recovery (skips completed experiment/seed pairs)
+- Progress tracking in `results/organized_experiments_log.json`
+- Multi-seed support for statistical significance
+- Category filtering (timestep, sparse, transformed)
+
 ### Generate Plots
 
 ```bash
