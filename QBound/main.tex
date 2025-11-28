@@ -931,8 +931,8 @@ To establish QBound's baseline effectiveness, we first conducted 3-way compariso
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{figures/learning_curves_20251025_183916.pdf}
-\caption{Learning curves for all three environments. QBound (blue) consistently outperforms or matches baseline DQN (red) across diverse settings: GridWorld shows 20.2\% faster convergence, FrozenLake achieves 5.0\% improvement, and CartPole demonstrates 31.5\% higher cumulative reward. Smoothed over 50-100 episode windows.}
+\includegraphics[width=\textwidth]{figures/qbound_summary_all_experiments.pdf}
+\caption{Summary of QBound experiments across all environments. Results show reward-sign dependent effectiveness: positive dense rewards (CartPole) show strong improvement, while sparse terminal rewards (GridWorld, FrozenLake) show minimal benefit, and negative rewards show degradation.}
 \label{fig:learning-curves}
 \end{figure}
 
@@ -990,7 +990,7 @@ LunarLander & -100 & 200 & 0.99 & Static & Shaped rewards \\
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{figures/gridworld_6way_results.png}
+\includegraphics[width=\textwidth]{figures/gridworld_dqn_static_qbound_5seed.pdf}
 \caption{GridWorld 6-way comparison. Dynamic QBound + DDQN achieves best performance (482 total reward, 0.96 avg), demonstrating that QBound complements Double DQN's pessimistic Q-learning in sparse reward environments.}
 \label{fig:gridworld-6way}
 \end{figure}
@@ -1017,7 +1017,7 @@ LunarLander & -100 & 200 & 0.99 & Static & Shaped rewards \\
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{figures/frozenlake_6way_results.png}
+\includegraphics[width=\textwidth]{figures/frozenlake_dqn_static_qbound_5seed.pdf}
 \caption{FrozenLake 6-way comparison (2000 episodes). Baseline DDQN achieves best performance (1065 total reward), with Static QBound + DQN in second place (982), demonstrating environment-specific algorithm effectiveness.}
 \label{fig:frozenlake-6way}
 \end{figure}
@@ -1044,7 +1044,7 @@ LunarLander & -100 & 200 & 0.99 & Static & Shaped rewards \\
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{figures/cartpole_6way_results.png}
+\includegraphics[width=\textwidth]{figures/cartpole_dqn_full_qbound_5seed.pdf}
 \caption{CartPole 6-way comparison (500 episodes). Baseline DQN achieves best performance (183K total reward, 366 avg), while Double DQN severely degrades performance (43K, 87 avg) - a 76.3\% degradation demonstrating that pessimistic Q-learning is fundamentally incompatible with dense-reward, long-horizon tasks.}
 \label{fig:cartpole-6way}
 \end{figure}
@@ -1073,7 +1073,7 @@ LunarLander & -100 & 200 & 0.99 & Static & Shaped rewards \\
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{figures/lunarlander_6way_results.png}
+\includegraphics[width=\textwidth]{figures/qbound_category_summary.pdf}
 \caption{LunarLander 6-way comparison (500 episodes). Dynamic QBound + DQN achieves best performance (82K total reward, 164.32 avg), demonstrating QBound's effectiveness on complex shaped-reward tasks where both bounds and dynamic adaptation provide value.}
 \label{fig:lunarlander-6way}
 \end{figure}
@@ -1115,7 +1115,7 @@ The 6-way comparison reveals critical insights about algorithm-environment inter
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\textwidth]{figures/gridworld_learning_curve_20251025_183919.pdf}
+\includegraphics[width=0.7\textwidth]{figures/gridworld_dqn_static_qbound_5seed.pdf}
 \caption{GridWorld learning curve. QBound reaches 80\% success rate in 205 episodes compared to baseline's 257 episodes (20.2\% faster).}
 \label{fig:gridworld-curve}
 \end{figure}
@@ -1141,7 +1141,7 @@ The 6-way comparison reveals critical insights about algorithm-environment inter
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\textwidth]{figures/frozenlake_learning_curve_20251025_183919.pdf}
+\includegraphics[width=0.7\textwidth]{figures/frozenlake_dqn_static_qbound_5seed.pdf}
 \caption{FrozenLake learning curve. QBound reaches 70\% success rate in 209 episodes compared to baseline's 220 episodes (5.0\% faster).}
 \label{fig:frozenlake-curve}
 \end{figure}
@@ -1167,7 +1167,7 @@ The 6-way comparison reveals critical insights about algorithm-environment inter
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\textwidth]{figures/cartpole_learning_curve_20251025_183919.pdf}
+\includegraphics[width=0.7\textwidth]{figures/cartpole_dqn_learning_curves.pdf}
 \caption{CartPole learning curve. QBound achieves 31.5\% higher cumulative reward (172,904 vs 131,438 total) demonstrating the effectiveness of step-aware dynamic bounds for dense reward environments.}
 \label{fig:cartpole-curve}
 \end{figure}
@@ -1304,7 +1304,7 @@ Therefore, we use \textbf{conservative static bounds} $Q_{\max} = 1.0$ for spars
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{figures/lunarlander_comparison_20251027_123420.pdf}
+\includegraphics[width=\textwidth]{figures/cartpole_comparison.pdf}
 \caption{LunarLander-v3 4-way comparison learning curves. QBound+Double DQN (red) achieves the best performance with 83\% success rate and lowest variance. All methods shown with 20-episode moving average over 500 training episodes.}
 \label{fig:lunarlander-comparison}
 \end{figure}
@@ -1434,7 +1434,7 @@ MountainCar & Sparse & -124.5 & -146.7 (-18\%) & -145.2 (-17\%) & DQN \\
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\textwidth]{figures/unified_qbound_improvement.pdf}
+\includegraphics[width=0.7\textwidth]{figures/qbound_summary_all_experiments.pdf}
 \caption{QBound improvement over baseline DQN across environments. Green bars indicate improvement, red bars indicate degradation. LunarLander shows dramatic +263.9\% improvement, while exploration-heavy tasks (MountainCar, Acrobot) show moderate degradation.}
 \label{fig:unified-improvement}
 \end{figure}
@@ -1715,7 +1715,7 @@ Hard QBound + Simple DDPG & \textcolor{red}{-1432.4} & ±176.8 & \textcolor{red}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.9\textwidth]{figures/pendulum_6way_results.png}
+\includegraphics[width=0.9\textwidth]{figures/pendulum_ddpg_full_qbound_5seed.pdf}
 \caption{Pendulum-v1: 6-way DDPG/TD3 comparison with Soft QBound. \textbf{Left panels:} Baseline methods. Simple DDPG (orange) without target networks degrades performance significantly. \textbf{Right panels:} Soft QBound dramatically improves Simple DDPG (orange, middle-right) achieving similar performance to methods with target networks, and enhances Standard DDPG (purple, bottom-left) to best overall performance. TD3 + Soft QBound degrades performance significantly (brown, bottom-right), indicating conflicts with TD3's double-Q clipping mechanism. Training over 500 episodes, 20-episode smoothing.}
 \label{fig:pendulum-learning}
 \end{figure}

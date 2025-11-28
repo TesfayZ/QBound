@@ -22,9 +22,10 @@ Value-based reinforcement learning methods suffer from overestimation bias ([Thr
 
 **Scope:** QBound targets *off-policy* value-based methods (DQN, DDQN, Dueling DQN) and off-policy actor-critic methods (DDPG, TD3) that use experience replay. On-policy methods (e.g., PPO, A2C, REINFORCE) are outside QBound's scope because they do not suffer from the same overestimation dynamics.
 
-**Key Findings:**
-- **Positive dense rewards** (CartPole-style): 12-34% improvement across DQN variants
-- **Negative rewards** (Pendulum-style): Generally degrades DQN; architectural QBound works for DDPG/TD3 (+4-7%)
+**Key Findings (5-seed evaluation, 40 runs total):**
+- **Positive dense rewards** (CartPole): 12-34% improvement across DQN variants (100% win rate for Dueling DQN)
+- **Negative rewards** (Pendulum): Generally degrades performance (-3 to -8%); TD3 exception (+4.1% but high variance)
+- **Sparse terminal rewards** (GridWorld, FrozenLake): No benefit—bounds trivially satisfied
 - **Negligible overhead**: <2% computational cost
 
 [Read the current draft (PDF)](QBound/main.pdf)
@@ -41,7 +42,7 @@ Value-based reinforcement learning methods suffer from overestimation bias ([Thr
 
 ---
 
-## 📊 Quick Results Summary
+## 📊 Quick Results Summary (5-Seed Evaluation)
 
 **40 experimental runs** (8 environments × 5 seeds) reveal reward-sign dependent effectiveness:
 
@@ -53,23 +54,39 @@ Value-based reinforcement learning methods suffer from overestimation bias ([Thr
 | **CartPole** | DDQN | +33.6% | Best improvement |
 | **CartPole** | Dueling DQN | +22.5% | Works with dueling architecture |
 
-### Negative Rewards (Off-Policy Actor-Critic with Architectural QBound)
+### Negative Rewards (Generally Not Recommended)
 
-| Environment | Algorithm | Result | Notes |
-|-------------|-----------|--------|-------|
-| **Pendulum** | DQN | -7.0% | Hard QBound degrades performance |
-| **Pendulum** | DDPG | +4.8% | Architectural QBound works |
-| **Pendulum** | TD3 | +7.2% | Architectural QBound works |
+| Environment | Algorithm | Result | Win Rate | Notes |
+|-------------|-----------|--------|----------|-------|
+| **Pendulum** | DQN | -3.3% | 2/5 (40%) | Hard QBound degrades |
+| **Pendulum** | DDPG | -8.0% | 2/5 (40%) | Architectural degrades |
+| **Pendulum** | TD3 | +4.1% | 4/5 (80%) | Exception (high variance) |
 
-### Sparse Rewards (Mixed Results)
+### Sparse Terminal Rewards (No Benefit)
+
+| Environment | Algorithm | Change | Win Rate | Notes |
+|-------------|-----------|--------|----------|-------|
+| **GridWorld** | DQN | -1.0% | 1/5 (20%) | Bounds trivially satisfied |
+| **FrozenLake** | DQN | -1.7% | 3/5 (60%) | No better than chance |
+
+### Shaped Sparse Rewards (Strong Improvement)
 
 | Environment | Algorithm | Improvement | Notes |
 |-------------|-----------|-------------|-------|
-| **GridWorld** | DDQN | +87.5% | Works for sparse terminal rewards |
-| **FrozenLake** | DQN | +282% | Strong improvement |
-| **LunarLander** | DQN | +263.9% | Excellent for shaped sparse rewards |
+| **LunarLander** | DQN | +263.9% | Best with Double DQN (83% success) |
 
-**Key Insight**: QBound's effectiveness fundamentally depends on **reward sign**. Neural networks with linear output layers have no architectural constraint on positive values, making explicit upper bounds essential for positive rewards. For negative rewards, hard QBound can interfere with learning dynamics; architectural enforcement (softplus clipping) works better for actor-critic methods. Future work will investigate Q-value transformation approaches to unify bounding across reward structures.
+### State-Dependent Negative Rewards (Degradation)
+
+| Environment | Algorithm | Change | Notes |
+|-------------|-----------|--------|-------|
+| **MountainCar** | DDQN | -47.4% | Bellman naturally constrains Q ≤ 0 |
+| **Acrobot** | DDQN | -3.6% | Upper bound redundant |
+
+**Key Insight**: QBound's effectiveness fundamentally depends on **reward sign and structure**:
+- **Positive dense rewards**: Strong improvement (CartPole: +12-34%)
+- **Shaped sparse rewards**: Works well (LunarLander: +263.9%)
+- **Sparse terminal rewards**: No benefit—bounds trivially satisfied (Q ∈ [0,1])
+- **Negative rewards**: Degradation—Bellman naturally constrains Q ≤ 0, making QBound redundant
 
 **Scope Note**: On-policy methods (PPO, A2C, REINFORCE) are outside QBound's scope. These methods naturally suffer less from overestimation bias because they use recent on-policy samples, have no max operator in value updates, and include built-in value stabilization mechanisms.
 
@@ -477,38 +494,42 @@ python analysis/analyze_all_6way_results.py
 
 ---
 
-## 📈 Key Findings
+## 📈 Key Findings (5-Seed Multi-Seed Results)
 
-### 1. Soft QBound Can Replace Target Networks
+### 1. Reward Sign Determines Effectiveness
+
+**Positive Dense Rewards (CartPole)**: Strong improvement
+- DQN: +12% (80% win rate)
+- DDQN: +33.6%
+- Dueling DQN: +22.5% (100% win rate - most reliable)
+
+**Negative Rewards (Pendulum)**: Generally not beneficial
+- DQN: -3.3% (40% win rate)
+- DDPG: -8.0% (40% win rate)
+- TD3: +4.1% (80% win rate, but 72% higher variance)
+
+**Sparse Terminal (GridWorld, FrozenLake)**: No benefit
+- Bounds trivially satisfied (Q ∈ [0,1])
+- Win rates: 20-60% (no better than chance)
+
+### 2. Soft QBound Can Replace Target Networks
 
 **Simple DDPG (no target networks):**
 - Baseline: -1464.9 (catastrophic failure)
 - With Soft QBound: -205.6 (+712% improvement!)
 - Standard DDPG (with targets): -180.8
 
-**Conclusion**: QBound provides alternative stabilization mechanism.
-
-### 2. Algorithm-Specific Interactions
-
-**Works Well:**
-- ✅ DQN on LunarLander (+469%)
-- ✅ DDPG on Pendulum (+5%)
-- ✅ PPO on LunarLander Continuous (+30.6%)
-
-**Conflicts:**
-- ❌ TD3 + QBound (-600%) - conflicts with double-Q
-- ❌ PPO + QBound on Pendulum (-162%) - conflicts with GAE
-- ❌ DDQN on CartPole (-21%) - pessimistic + dense = bad
+**Conclusion**: QBound provides alternative stabilization mechanism for actor-critic methods without targets.
 
 ### 3. Environment-Dependent Effectiveness
 
-**Sparse Rewards**: QBound excels (FrozenLake +282%, LunarLander +469%)
-
-**Dense Rewards**: Mixed results
-- Positive dense (CartPole): Dynamic bounds help
-- Negative dense (Pendulum): Static sufficient
-
-**Shaped Rewards**: Static bounds work best
+| Category | Result | Recommendation |
+|----------|--------|----------------|
+| **Positive Dense** | +12-34% | ✅ Recommended |
+| **Shaped Sparse** | +263.9% | ✅ Recommended (LunarLander) |
+| **Sparse Terminal** | ~0% | ❌ No benefit |
+| **Negative Rewards** | -3 to -8% | ❌ Not recommended |
+| **State-Dependent** | -4 to -47% | ❌ Avoid |
 
 ---
 
@@ -576,11 +597,15 @@ Q_clipped = softplus_clip(Q, Q_min, Q_max, beta=1.0)
 
 ## 🐛 Known Limitations
 
-1. **TD3 Conflict**: QBound conflicts with TD3's clipped double-Q mechanism
-2. **Negative Rewards**: Hard QBound degrades performance for DQN on negative reward environments (Pendulum)
-3. **DDQN CartPole**: Double-Q pessimism hurts dense positive reward learning
+1. **Negative Rewards**: QBound provides no benefit and often degrades performance on negative reward environments (Pendulum: -3 to -8%, MountainCar: -47%, Acrobot: -4%). The Bellman equation naturally constrains Q ≤ 0 for negative rewards, making explicit bounds redundant.
 
-These are **fundamental algorithmic interactions**, not implementation bugs.
+2. **Sparse Terminal Rewards**: QBound provides no benefit on sparse terminal reward tasks (GridWorld, FrozenLake). Bounds of Q ∈ [0,1] are trivially satisfied.
+
+3. **High Variance with TD3**: While TD3 shows +4.1% improvement, variance increases by 72%, making results less reliable.
+
+4. **Seed Sensitivity**: Even in successful cases (CartPole DQN), 20% of seeds show degradation. Always run multiple seeds.
+
+These are **fundamental limitations based on reward structure**, not implementation bugs.
 
 ---
 
