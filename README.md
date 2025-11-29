@@ -52,17 +52,17 @@ All results below are from **5-seed experiments** (seeds 42-46) for statistical 
 
 | Environment | Algorithm | Change | Notes |
 |-------------|-----------|--------|-------|
-| **MountainCar** | DQN | -8.2% | Bellman naturally constrains Q <= 0 |
+| **MountainCar** | DQN | -8.2% | Causes degradation |
 | **MountainCar** | DDQN | **-47.4%** | Severe degradation |
-| **Acrobot** | DQN | -4.9% | Upper bound redundant |
-| **Acrobot** | DDQN | -3.6% | Upper bound redundant |
+| **Acrobot** | DQN | -4.9% | Causes degradation |
+| **Acrobot** | DDQN | -3.6% | Causes degradation |
 
 ### Key Insight
 
 QBound's effectiveness fundamentally depends on **reward sign and structure**:
 - **Positive dense rewards**: Strong improvement (CartPole: +12% to +33.6%)
 - **Sparse terminal rewards**: No benefit (Q bounds trivially satisfied)
-- **Negative rewards**: Degradation (Bellman naturally constrains Q <= 0)
+- **Negative rewards**: Degradation (underlying cause remains open question)
 
 **Recommendation**: Use QBound only for **positive dense reward environments** with Dueling DQN architecture (100% win rate, +22.5% mean improvement).
 
@@ -252,7 +252,7 @@ Q_min = 0.0
 |------------------|----------------|--------|
 | Positive dense rewards | **Recommended** | +12% to +33.6% improvement |
 | Sparse terminal rewards | Not recommended | Bounds trivially satisfied |
-| Negative rewards | Not recommended | Bellman naturally constrains Q <= 0 |
+| Negative rewards | Not recommended | Causes degradation (reason open question) |
 
 ---
 
