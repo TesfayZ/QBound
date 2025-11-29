@@ -70,11 +70,13 @@
 \maketitle
 
 \begin{abstract}
-Value-based reinforcement learning methods suffer from overestimation bias \citep{thrun1993issues, van2016deep}, where bootstrapped Q-value estimates systematically exceed true values, causing instability and poor sample efficiency. We present QBound, a stabilization mechanism that exploits environment structure to prevent overestimation by deriving and enforcing Q-value bounds from known reward structures. QBound addresses overestimation at its source (bootstrapped targets) by clipping next-state Q-values to environment-specific bounds $[Q_{\min}, Q_{\max}]$, which propagate naturally through temporal difference learning.
+We present QBound, a stabilization mechanism for value-based reinforcement learning that derives and enforces Q-value bounds from known reward structures. \textbf{Critical finding: QBound's effectiveness fundamentally depends on reward sign.} Comprehensive evaluation across 8 environments with 5 seeds (40 runs) reveals that QBound improves performance only for positive dense rewards, while consistently degrading performance for negative rewards. This reward-sign dependence is the paper's central empirical finding and limits QBound's applicability.
 
-\textbf{Scope:} QBound targets \textit{off-policy} value-based methods (DQN, DDQN, Dueling DQN) and off-policy actor-critic methods (DDPG, TD3) that use experience replay. On-policy methods (e.g., PPO, A2C, REINFORCE) are outside QBound's scope because they do not suffer from the same overestimation dynamics: on-policy sampling avoids stale replay buffer data, the value function $V(s)$ has no max operator in its update, and these methods already include built-in value stabilization mechanisms.
+QBound addresses overestimation bias \citep{thrun1993issues, van2016deep}---where bootstrapped Q-value estimates systematically exceed true values---by clipping next-state Q-values to environment-specific bounds $[Q_{\min}, Q_{\max}]$, which propagate naturally through temporal difference learning.
 
-Comprehensive evaluation across 8 environments with 5 independent random seeds (40 runs total) reveals that QBound's effectiveness fundamentally depends on reward sign, with significant seed-dependent variability. For positive dense reward environments (e.g., CartPole: $r = +1$ per timestep), QBound achieves mean improvements of 12\% to 34\% across DQN variants, but per-seed analysis reveals inconsistency: CartPole Dueling shows 100\% win rate (5/5 seeds improve), while CartPole DQN shows only 80\% win rate (4/5 seeds improve, with one seed degrading by 8.7\%). Neural networks with linear output layers have no architectural constraint on positive values, making explicit upper bounds beneficial on average.
+\textbf{Scope:} QBound targets \textit{off-policy} value-based methods (DQN, DDQN, Dueling DQN) and off-policy actor-critic methods (DDPG, TD3) that use experience replay. On-policy methods (e.g., PPO, A2C, REINFORCE) are outside QBound's scope because they do not suffer from the same overestimation dynamics.
+
+\textbf{Results by reward sign:} For positive dense reward environments (e.g., CartPole: $r = +1$ per timestep), QBound achieves mean improvements of 12\% to 34\% across DQN variants, but per-seed analysis reveals inconsistency: CartPole Dueling shows 100\% win rate (5/5 seeds improve), while CartPole DQN shows only 80\% win rate (4/5 seeds improve, with one seed degrading by 8.7\%). Neural networks with linear output layers have no architectural constraint on positive values, making explicit upper bounds beneficial on average.
 
 For negative reward environments (Pendulum: $r \in [-16, 0]$), we tested architectural QBound (output activation: $Q = -\text{softplus}(\text{logits})$) across off-policy algorithms. QBound degrades performance for most algorithms: architectural QBound degrades DQN by 3.3\%, Double DQN by 7.1\%, and DDPG by 8.0\%. TD3 is an exception, showing 4.1\% improvement with architectural QBound ($-183.25 \rightarrow -175.66$) but with 72\% higher variance ($\pm 40.15$ vs $\pm 23.36$), suggesting a unique interaction with TD3's twin critic architecture.
 
@@ -143,6 +145,28 @@ We propose QBound, a stabilization mechanism that prevents overestimation bias b
 
 \textbf{Target Applications:} QBound is most effective for positive dense reward environments (e.g., CartPole with $r=+1$ per timestep). For such environments, explicit upper bounds prevent unbounded Q-value growth. QBound is not recommended for negative reward or sparse terminal reward environments where it provides no benefit or causes degradation.
 
+\subsection{QBound Variants: A Taxonomy}
+
+We implement three QBound variants depending on action space and reward sign. Table~\ref{tab:qbound-taxonomy} summarizes when to use each.
+
+\begin{table}[h]
+\centering
+\caption{QBound Implementation Variants}
+\label{tab:qbound-taxonomy}
+\small
+\begin{tabular}{p{2.5cm}p{3.5cm}p{4cm}p{3cm}}
+\toprule
+\textbf{Variant} & \textbf{Mechanism} & \textbf{Use Case} & \textbf{Algorithms} \\
+\midrule
+\textbf{Hard QBound} & Direct clipping: $Q \gets \clip(Q, Q_{\min}, Q_{\max})$ & Discrete actions, positive rewards & DQN, DDQN, Dueling \\
+\textbf{Soft QBound} & Penalty loss for violations (preserves gradients) & Continuous actions where hard clipping breaks gradients & DDPG, TD3 \\
+\textbf{Architectural} & Output activation: $Q = -\text{softplus}(\cdot)$ enforces $Q \leq 0$ & Negative rewards (theoretical; empirically mixed) & Any Q-learning \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key distinction:} Hard and Soft QBound enforce bounds \textit{algorithmically} (post-hoc on network outputs), while Architectural QBound enforces bounds \textit{structurally} through network architecture. Our experiments reveal that Hard QBound succeeds for positive rewards (+12-34\%), but Architectural QBound largely fails for negative rewards despite theoretical motivation (Sec.~3.4.3).
+
 \section{Related Work}
 
 \subsection{Value-Based Reinforcement Learning}
@@ -167,7 +191,9 @@ Deep RL stability has been improved through various techniques: target networks 
 
 The choice of output activation functions for value networks is rarely discussed in RL literature, with most work using linear (identity) output layers by default. However, recent work has begun exploring architectural constraints:
 
-\textbf{Bounded activation functions:} Some early DQN implementations experimented with sigmoid or tanh output activations to bound Q-values \citep{mnih2013playing}, but this was abandoned in favor of linear outputs in DQN \citep{mnih2015human} due to representational limitations. \citet{pohlen2018observe} observed that bounded activations can help in certain Atari games but hurt generalization. The consensus has been that linear outputs provide the most flexibility.
+\textbf{Bounded activation functions:} Some early DQN implementations experimented with sigmoid or tanh output activations to bound Q-values \citep{mnih2013playing}, but this was abandoned in favor of linear outputs in DQN \citep{mnih2015human} due to representational limitations. The consensus has been that linear outputs provide the most flexibility.
+
+\textbf{Transformed Bellman operators:} \citet{pohlen2018observe} introduced a transformed Bellman operator that addresses varying Q-value scales across Atari games through reward transformation, enabling stable training with high discount factors ($\gamma = 0.999$). Their approach bounds Q-values implicitly through invertible transformations rather than explicit architectural constraints. While effective for scale normalization, their method does not leverage environment-specific reward bounds or address reward-sign-dependent implementation strategies. Our work complements this by showing that explicit bounds derived from reward structure can provide additional benefits, particularly for known reward ranges.
 
 \textbf{Architectural inductive biases:} Recent work in supervised learning has emphasized the importance of architectural inductive biases matching problem structure \citep{battaglia2018relational}. \citet{goyal2021inductive} showed that architectural choices encoding prior knowledge outperform learned representations in many domains. However, this principle has seen limited application to value network design in RL.
 
@@ -177,7 +203,9 @@ The choice of output activation functions for value networks is rarely discussed
 
 \subsection{Recent Work on Value Bounding and Constraints}
 
-Recent work has explored constraining Q-values in various contexts. \citet{liu2024boosting} proposed bounding techniques for soft Q-learning in offline settings, demonstrating improved stability through bounded value function approximation. \citet{adamczyk2023bounding} derived theoretical bounds for compositional RL, providing double-sided inequalities relating optimal composite value functions to primitive task values. \citet{wang2024adaptive} investigated adaptive pessimism through target Q-value constraints in offline-to-online RL, achieving improved stability by balancing pessimism constraints with RL objectives.
+Recent work has explored constraining Q-values in various contexts. \citet{liu2024boosting} proposed bounding techniques for soft Q-learning in offline settings, demonstrating improved stability through bounded value function approximation. \citet{adamczyk2023bounding} derived theoretical bounds for compositional RL, providing double-sided inequalities relating optimal composite value functions to primitive task values.
+
+\textbf{Adaptive pessimism:} \citet{wang2024adaptive} introduced APTQ (Adaptive Pessimism via Target Q-value), which balances pessimism constraints with RL objectives by adaptively weighting conservatism based on task-specific Q-value distributions. Their key insight—that optimal constraint strength varies across tasks—parallels our finding that optimal \textit{implementation} (hard clipping vs. architectural constraints) varies across reward structures. However, their approach targets offline RL with out-of-distribution action mitigation, while QBound addresses online learning with environment-derived bounds. Both works highlight that Q-value constraints should be task-aware rather than fixed.
 
 Work on overestimation bias has also progressed. \citet{elasticdqn2023} proposed Elastic Step DQN, which alleviates overestimation by dynamically varying multi-step horizons based on state similarity. \citet{twosample2024bias} addressed maximization bias through two-sample testing, framing the problem statistically and proposing the T-Estimator that flexibly interpolates between over- and underestimation. \citet{imagination2025limited} introduced Imagination-Limited Q-Learning, which envisions reasonable values and appropriately limits potential over-estimations using maximum behavior values.
 
@@ -188,14 +216,14 @@ For sparse reward environments, \citet{efficient2024sparse} achieved 2$\times$ b
 QBound differs from prior work in several key aspects:
 \begin{enumerate}
     \item \textbf{Environment-aware bounds:} Unlike generic stabilization techniques or learned bounds, QBound derives bounds directly from environment reward structure, ensuring theoretical correctness
-    \item \textbf{Dual implementation strategy:} We demonstrate that the \textit{same principle} (bounding Q-values) requires \textit{different implementations} depending on reward sign. Hard clipping for positive rewards, architectural constraints (output activations) for negative rewards—the first work to systematically explore this distinction
+    \item \textbf{Dual implementation strategy:} We demonstrate that the \textit{same principle} (bounding Q-values) requires \textit{different implementations} depending on reward sign. Hard clipping for positive rewards, architectural constraints (output activations) for negative rewards. While prior work has explored Q-value constraints \citep{pohlen2018observe, wang2024adaptive}, we provide targeted analysis of how reward sign affects implementation choices
     \item \textbf{Architectural inductive bias:} We show that output activation functions ($Q = -\text{softplus}(\text{logits})$) can enforce value bounds more effectively than algorithmic clipping by constraining exploration space from initialization, bridging the gap between architectural design and value function learning
     \item \textbf{Bootstrapping-based enforcement:} QBound leverages the natural propagation of bootstrapped targets through temporal difference learning \citep{sutton2018reinforcement}, requiring only simple operations (clipping or activation)
     \item \textbf{Online learning focus:} Unlike recent work on offline RL \citep{wang2024adaptive, imagination2025limited}, QBound targets online learning in both sparse and dense reward settings
     \item \textbf{Comprehensive evaluation:} We provide extensive analysis across 10 environments with 5 seeds each (50 experiments), including honest reporting of failure modes and implementation-dependent effectiveness
 \end{enumerate}
 
-\textbf{Novel contribution on activation functions:} This is the first work to systematically demonstrate that \textit{output activation function selection} should depend on reward structure, showing that architectural constraints outperform post-hoc clipping for negative rewards while the reverse holds for positive rewards.
+\textbf{Novel contribution on activation functions:} To our knowledge, this is among the first works to systematically investigate how \textit{output activation function selection} should depend on reward structure. Our experiments suggest that architectural constraints may outperform post-hoc clipping for negative rewards while the reverse holds for positive rewards, complementing prior work on transformed operators \citep{pohlen2018observe} and adaptive constraints \citep{wang2024adaptive}.
 
 \section{Theoretical Foundations}
 
@@ -412,14 +440,15 @@ If $r(s,a,s') \leq 0$ for all transitions, then $Q^\pi(s,a) \leq 0$ for any poli
     \item \textbf{Empirical result:} Pendulum DQN shows \textbf{-3.3\% degradation} with architectural QBound (5 seeds)
 \end{itemize}
 
-\paragraph{Architectural QBound Succeeds.} Output activation function ($Q = -\text{softplus}(\text{logits})$, enforcing $Q \in (-\infty, 0]$) constrains \textit{exploration space}:
+\paragraph{Architectural QBound: Theoretical Motivation vs. Empirical Reality.} Output activation function ($Q = -\text{softplus}(\text{logits})$, enforcing $Q \in (-\infty, 0]$) constrains \textit{exploration space}. In principle, this should help:
 \begin{itemize}
     \item \textbf{Constrained exploration:} Network explores WITHIN correct range $(-\infty, 0]$ from first forward pass
     \item \textbf{Learning correct magnitude:} Network learns ``how negative'' Q should be, not ``whether it should be negative''
     \item \textbf{Zero violations by construction:} Activation function mathematically enforces $Q \leq 0$, no conflict possible
     \item \textbf{Smooth gradients:} $\frac{\partial Q}{\partial \text{logits}} = -\text{sigmoid}(\text{logits}) \in (-1, 0)$ is never zero
-    \item \textbf{Empirical result:} Pendulum shows mixed results: TD3 improves by \textbf{+4.1\%} but DQN degrades by -3.3\%, DDPG by -8.0\% (5 seeds)
 \end{itemize}
+
+\textbf{However, empirical results contradict this reasoning.} On Pendulum (5 seeds), architectural QBound \textit{degrades} performance for most algorithms: DQN by -3.3\%, Double DQN by -7.1\%, and DDPG by -8.0\%. Only TD3 shows improvement (+4.1\%), but with 72\% higher variance. The gap between theoretical motivation and empirical outcomes suggests that additional factors---possibly related to optimization dynamics, initialization interactions, or algorithm-specific properties---dominate the theoretical benefits of constrained exploration.
 
 \textbf{Key insight:} QBound shows asymmetric results between positive and negative rewards. For positive rewards (CartPole), hard clipping provides 12-34\% improvement. For negative rewards (Pendulum), QBound generally degrades performance (-3\% to -8\%). TD3 is an exception showing modest improvement (+4.1\%), but with 72\% higher variance. The fundamental question of \textit{why} this asymmetry exists remains open for future investigation.
 
