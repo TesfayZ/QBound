@@ -7,6 +7,8 @@
 
 A comprehensive implementation and evaluation of **QBound**, a stabilization mechanism that exploits environment structure to prevent overestimation bias in deep reinforcement learning by deriving and enforcing Q-value bounds from known reward structures.
 
+**Important:** QBound is a *specialized technique* effective only for **positive dense reward environments** (e.g., CartPole). It causes degradation on negative reward environments and provides no benefit on sparse terminal rewards.
+
 ## Research Paper
 
 **QBound: Environment-Aware Q-Value Bounds for Stable Temporal Difference Learning**
@@ -176,8 +178,8 @@ QBound/
 │   ├── dqn_agent.py             # DQN with QBound
 │   ├── double_dqn_agent.py      # Double DQN with QBound
 │   ├── dueling_dqn_agent.py     # Dueling DQN with QBound
-│   ├── ddpg_agent.py            # DDPG with Soft QBound
-│   ├── td3_agent.py             # TD3 with Soft QBound
+│   ├── ddpg_agent.py            # DDPG with Architectural QBound
+│   ├── td3_agent.py             # TD3 with Architectural QBound
 │   └── environment.py           # Custom GridWorld
 │
 ├── experiments/                  # Experiment scripts
@@ -239,20 +241,23 @@ Q_min = 0.0
 
 ## Configuration Guidelines
 
-### When to Use Hard vs Soft QBound
+### QBound Variants
 
-| Method | Use Case | Implementation |
-|--------|----------|----------------|
-| **Hard QBound** | Discrete actions (DQN, DDQN, Dueling) | `clip(Q, Q_min, Q_max)` |
-| **Soft QBound** | Continuous actions (DDPG, TD3) | `softplus_clip(Q, Q_min, Q_max)` |
+| Variant | Use Case | Implementation | Status |
+|---------|----------|----------------|--------|
+| **Hard QBound** | Discrete actions (DQN, DDQN, Dueling) | `clip(Q, Q_min, Q_max)` | Evaluated (+12-34% on CartPole) |
+| **Architectural QBound** | Negative rewards | `Q = -softplus(logits)` | Evaluated (fails for most algorithms) |
+| **Soft QBound** | Continuous actions (penalty-based) | Quadratic penalty loss | Not empirically evaluated |
 
 ### When to Use QBound
+
+**Important:** QBound is a *specialized technique*, not a universal improvement.
 
 | Environment Type | Recommendation | Reason |
 |------------------|----------------|--------|
 | Positive dense rewards | **Recommended** | +12% to +33.6% improvement |
 | Sparse terminal rewards | Not recommended | Bounds trivially satisfied |
-| Negative rewards | Not recommended | Causes degradation (reason open question) |
+| Negative rewards | **Do not use** | Causes degradation (-3% to -47%) |
 
 ---
 
