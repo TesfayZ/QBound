@@ -239,7 +239,7 @@ QBound differs from prior work in several key aspects:
     \item \textbf{Comprehensive evaluation:} We provide extensive analysis across 8 environments with 5 seeds each (40 runs), including honest reporting of failure modes and implementation-dependent effectiveness
 \end{enumerate}
 
-\textbf{Novel contribution on activation functions:} To our knowledge, this is among the first works to systematically investigate how \textit{output activation function selection} interacts with reward structure in value-based RL. Our experiments reveal that architectural constraints ($Q = -\text{softplus}(\cdot)$) for negative rewards largely fail despite theoretical motivation, while hard clipping succeeds for positive rewards. This asymmetry provides important guidance: QBound is effective for positive dense rewards but should not be applied to negative reward environments.
+\textbf{Findings on activation functions:} Our experiments reveal that architectural constraints ($Q = -\text{softplus}(\cdot)$) for negative rewards largely fail despite theoretical motivation, while hard clipping succeeds for positive rewards. This asymmetry provides practical guidance: QBound is effective for positive dense rewards but should not be applied to negative reward environments.
 
 \section{Theoretical Foundations}
 
