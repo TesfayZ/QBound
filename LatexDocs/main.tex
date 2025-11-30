@@ -124,6 +124,8 @@ Prior stabilization work includes target networks \citep{mnih2015human}, clipped
 
 We propose QBound, a stabilization mechanism that prevents overestimation bias by exploiting known environment structure. QBound addresses the root cause of instability in bootstrapped value learning—unbounded overestimation—by deriving and enforcing environment-aware Q-value bounds. Unlike generic pessimism (e.g., Double-Q \citep{van2016deep}), QBound's bounds are environment-specific, providing stabilization without excessive conservatism.
 
+\textbf{Important scope limitation:} QBound is a \textit{specialized technique}, not a universal improvement. Our comprehensive evaluation reveals that QBound provides consistent benefits \textit{only} for positive dense reward environments (+12-34\% on CartPole). For negative reward environments, QBound causes degradation (-3\% to -8\%). For sparse terminal rewards, QBound provides no meaningful benefit. Practitioners should carefully assess reward structure before applying QBound.
+
 \textbf{Core Mechanism:}
 \begin{itemize}
     \item Derive tight bounds $[Q_{\min}, Q_{\max}]$ from environment reward structure
@@ -159,8 +161,8 @@ We implement three QBound variants depending on action space and reward sign. Ta
 \textbf{Variant} & \textbf{Mechanism} & \textbf{Use Case} & \textbf{Algorithms} \\
 \midrule
 \textbf{Hard QBound} & Direct clipping: $Q \gets \clip(Q, Q_{\min}, Q_{\max})$ & Discrete actions, positive rewards & DQN, DDQN, Dueling \\
-\textbf{Soft QBound} & Penalty loss for violations (preserves gradients) & Continuous actions where hard clipping breaks gradients & DDPG, TD3 \\
-\textbf{Architectural} & Output activation: $Q = -\text{softplus}(\cdot)$ enforces $Q \leq 0$ & Negative rewards (theoretical; empirically mixed) & Any Q-learning \\
+\textbf{Soft QBound} & Penalty loss for violations (preserves gradients) & Continuous actions (theoretical; not evaluated) & DDPG, TD3, SAC \\
+\textbf{Architectural} & Output activation: $Q = -\text{softplus}(\cdot)$ enforces $Q \leq 0$ & Negative rewards (empirically fails) & Any Q-learning \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -211,19 +213,33 @@ Work on overestimation bias has also progressed. \citet{elasticdqn2023} proposed
 
 For sparse reward environments, \citet{efficient2024sparse} achieved 2$\times$ better sample efficiency through high replay ratio methods with regularization, while \citet{llmreward2024shaping} demonstrated significant improvements by extracting heuristics from large language models for reward shaping.
 
+\subsection{Related Bias Mitigation Methods}
+
+Several recent methods address Q-value overestimation through alternative mechanisms. We discuss their relationship to QBound and acknowledge that direct empirical comparisons remain future work.
+
+\textbf{Q-Clip in Discrete SAC (SD-SAC):} \citet{zhou2022sd} introduced Q-clip for discrete Soft Actor-Critic, explicitly bounding critic updates to stabilize training. Unlike QBound's environment-derived bounds, Q-clip uses fixed or learned bounds without leveraging reward structure. A head-to-head comparison on shared discrete benchmarks would clarify whether environment-aware bounds provide additional benefits over generic Q-clip.
+
+\textbf{Doubly Bounded Estimators (DB-ADP):} \citet{ren2022doubly} employ both upper and lower bounds on Q-targets via a conservative dynamic programming estimator, demonstrating robust gains on Atari. DB-ADP provides complementary lower-bound enforcement that QBound does not address. Combining QBound's environment-aware upper bounds with DB-ADP's lower bounds is a promising direction.
+
+\textbf{Distributional Ensemble Methods (CTD4):} \citet{wu2023ctd4} use distributional ensembles with variance-aware Kalman-style fusion to reduce overestimation. This approach is orthogonal to QBound: distributional methods model return uncertainty, while QBound enforces hard constraints from environment structure. Combining both could provide complementary benefits.
+
+\textbf{Adaptive Bias Control (BE-TD3):} \citet{lee2022betd3} adaptively select between min and max operators based on estimated bias direction. This online adaptation contrasts with QBound's static, environment-derived bounds. Whether QBound plus adaptive bias control achieves additive benefits is an open question.
+
+\textbf{Relationship to QBound:} These methods differ from QBound in key aspects: (1) they typically use learned or fixed bounds rather than environment-derived bounds; (2) they focus on the bias-variance tradeoff rather than theoretical constraint satisfaction; (3) they do not explicitly leverage reward structure information. QBound's contribution is showing that environment-aware bounds can provide benefits for specific reward structures (positive dense rewards), though our empirical evaluation is limited to simpler benchmarks. Direct comparisons on standard benchmarks (Atari, DMControl) remain important future work.
+
 \subsection{Positioning of QBound}
 
 QBound differs from prior work in several key aspects:
 \begin{enumerate}
     \item \textbf{Environment-aware bounds:} Unlike generic stabilization techniques or learned bounds, QBound derives bounds directly from environment reward structure, ensuring theoretical correctness
-    \item \textbf{Dual implementation strategy:} We demonstrate that the \textit{same principle} (bounding Q-values) requires \textit{different implementations} depending on reward sign. Hard clipping for positive rewards, architectural constraints (output activations) for negative rewards. While prior work has explored Q-value constraints \citep{pohlen2018observe, wang2024adaptive}, we provide targeted analysis of how reward sign affects implementation choices
-    \item \textbf{Architectural inductive bias:} We show that output activation functions ($Q = -\text{softplus}(\text{logits})$) can enforce value bounds more effectively than algorithmic clipping by constraining exploration space from initialization, bridging the gap between architectural design and value function learning
+    \item \textbf{Reward-sign analysis:} We investigate how QBound effectiveness depends on reward sign. Hard clipping succeeds for positive rewards (+12-34\%), but architectural constraints for negative rewards largely fail despite theoretical motivation. While prior work has explored Q-value constraints \citep{pohlen2018observe, wang2024adaptive}, we provide systematic analysis revealing this fundamental limitation
+    \item \textbf{Architectural inductive bias investigation:} We investigate whether output activation functions ($Q = -\text{softplus}(\text{logits})$) can enforce value bounds for negative rewards. Despite theoretical motivation, our experiments show this approach largely fails, providing important negative results for the community
     \item \textbf{Bootstrapping-based enforcement:} QBound leverages the natural propagation of bootstrapped targets through temporal difference learning \citep{sutton2018reinforcement}, requiring only simple operations (clipping or activation)
     \item \textbf{Online learning focus:} Unlike recent work on offline RL \citep{wang2024adaptive, imagination2025limited}, QBound targets online learning in both sparse and dense reward settings
-    \item \textbf{Comprehensive evaluation:} We provide extensive analysis across 10 environments with 5 seeds each (50 experiments), including honest reporting of failure modes and implementation-dependent effectiveness
+    \item \textbf{Comprehensive evaluation:} We provide extensive analysis across 8 environments with 5 seeds each (40 runs), including honest reporting of failure modes and implementation-dependent effectiveness
 \end{enumerate}
 
-\textbf{Novel contribution on activation functions:} To our knowledge, this is among the first works to systematically investigate how \textit{output activation function selection} should depend on reward structure. Our experiments suggest that architectural constraints may outperform post-hoc clipping for negative rewards while the reverse holds for positive rewards, complementing prior work on transformed operators \citep{pohlen2018observe} and adaptive constraints \citep{wang2024adaptive}.
+\textbf{Novel contribution on activation functions:} To our knowledge, this is among the first works to systematically investigate how \textit{output activation function selection} interacts with reward structure in value-based RL. Our experiments reveal that architectural constraints ($Q = -\text{softplus}(\cdot)$) for negative rewards largely fail despite theoretical motivation, while hard clipping succeeds for positive rewards. This asymmetry provides important guidance: QBound is effective for positive dense rewards but should not be applied to negative reward environments.
 
 \section{Theoretical Foundations}
 
@@ -296,6 +312,49 @@ Follows directly from definition: $Q^*(s,a) = \max_\pi Q^\pi(s,a) \leq \sup_\pi 
 \begin{corollary}
 Clipping Q-values to $[Q_{\min}, Q_{\max}]$ cannot remove the optimal value $Q^*$.
 \end{corollary}
+
+\subsection{Analysis of the Clipped Bellman Operator}
+\label{sec:clipped-bellman-analysis}
+
+A key theoretical question is whether the clipped target operator preserves the contraction properties essential for convergence. We analyze this formally.
+
+\begin{definition}[Clipped Bellman Operator]
+Define the clipped Bellman optimality operator $\mathcal{T}_{\text{clip}}: \mathbb{R}^{|\mathcal{S}||\mathcal{A}|} \to \mathbb{R}^{|\mathcal{S}||\mathcal{A}|}$ as:
+$$(\mathcal{T}_{\text{clip}} Q)(s,a) = \E_{s' \sim P(\cdot|s,a)}\left[r(s,a,s') + \gamma \cdot \clip\left(\max_{a'} Q(s',a'), Q_{\min}, Q_{\max}\right)\right]$$
+\end{definition}
+
+\begin{theorem}[Contraction Property of Clipped Operator]
+\label{thm:clipped-contraction}
+The clipped Bellman operator $\mathcal{T}_{\text{clip}}$ is a $\gamma$-contraction in the $\ell_\infty$ norm:
+$$\|\mathcal{T}_{\text{clip}} Q_1 - \mathcal{T}_{\text{clip}} Q_2\|_\infty \leq \gamma \|Q_1 - Q_2\|_\infty$$
+\end{theorem}
+
+\begin{proof}
+For any $s, a$:
+\begin{align*}
+|(\mathcal{T}_{\text{clip}} Q_1)(s,a) - (\mathcal{T}_{\text{clip}} Q_2)(s,a)| &= \gamma \left|\E_{s'}\left[\clip(\max_{a'} Q_1(s',a')) - \clip(\max_{a'} Q_2(s',a'))\right]\right|
+\end{align*}
+Since $\clip(\cdot, Q_{\min}, Q_{\max})$ is a non-expansive mapping (i.e., $|\clip(x) - \clip(y)| \leq |x - y|$), and $\max$ over a finite set is also non-expansive:
+$$|\clip(\max_{a'} Q_1(s',a')) - \clip(\max_{a'} Q_2(s',a'))| \leq |\max_{a'} Q_1(s',a') - \max_{a'} Q_2(s',a')| \leq \|Q_1 - Q_2\|_\infty$$
+Therefore:
+$$|(\mathcal{T}_{\text{clip}} Q_1)(s,a) - (\mathcal{T}_{\text{clip}} Q_2)(s,a)| \leq \gamma \|Q_1 - Q_2\|_\infty$$
+Taking the supremum over all $(s,a)$ yields the result.
+\end{proof}
+
+\begin{theorem}[Fixed Point of Clipped Operator]
+\label{thm:clipped-fixed-point}
+Let $Q^*$ be the optimal Q-function and $\tilde{Q}^*$ be the fixed point of $\mathcal{T}_{\text{clip}}$. If bounds are correctly specified (i.e., $Q^*(s,a) \in [Q_{\min}, Q_{\max}]$ for all $s,a$), then $\tilde{Q}^* = Q^*$.
+\end{theorem}
+
+\begin{proof}
+When $Q^*(s,a) \in [Q_{\min}, Q_{\max}]$ for all $(s,a)$, we have $\max_{a'} Q^*(s',a') \in [Q_{\min}, Q_{\max}]$ for all $s'$. Therefore, $\clip(\max_{a'} Q^*(s',a'), Q_{\min}, Q_{\max}) = \max_{a'} Q^*(s',a')$, which implies $\mathcal{T}_{\text{clip}} Q^* = \mathcal{T} Q^* = Q^*$. Since $Q^*$ satisfies the clipped Bellman equation, it is the unique fixed point by the Banach fixed point theorem.
+\end{proof}
+
+\begin{remark}[Bias Under Mis-specified Bounds]
+If bounds are mis-specified such that $Q^*(s,a) > Q_{\max}$ for some $(s,a)$, then the fixed point $\tilde{Q}^*$ satisfies $\tilde{Q}^*(s,a) \leq Q^*(s,a)$. Specifically, for states where clipping is active, the learned Q-function underestimates the true optimal value. This bias is bounded by:
+$$Q^*(s,a) - \tilde{Q}^*(s,a) \leq \frac{\gamma}{1-\gamma}(Q^*_{\max} - Q_{\max})$$
+where $Q^*_{\max} = \max_{s,a} Q^*(s,a)$ is the true maximum Q-value. Overly conservative bounds thus introduce pessimistic bias, while correctly specified bounds preserve optimality.
+\end{remark}
 
 \subsection{Fundamental Q-Value Bounds for Common Reward Structures}
 
@@ -623,20 +682,6 @@ When exact bounds are unknown:
 For complex environments, compute bounds per state region:
 $$Q_{\min}(s) = \min_{\tau \in \mathcal{T}(s)} G(\tau), \quad Q_{\max}(s) = \max_{\tau \in \mathcal{T}(s)} G(\tau)$$
 
-\subsubsection{Proportional Scaling Details}
-
-The \texttt{ScaleToRangePerSample} function applies proportional scaling \textbf{independently to each sample} in the batch. This per-sample approach is critical: scaling each sample's Q-values based only on that sample's min/max prevents one bad sample from affecting others.
-
-\begin{proposition}[Ordering Preservation]
-The per-sample linear scaling transformation preserves exact action preference ordering within each sample:
-$$Q_\theta(s_i,a_j) > Q_\theta(s_i,a_k) \iff \hat{Q}(s_i,a_j) > \hat{Q}(s_i,a_k)$$
-for each state $s_i$ in the batch.
-\end{proposition}
-
-\begin{proof}
-For each sample $i$, we have $\hat{Q}(s_i,a) = Q_{\min} + \text{scale}_i \cdot (Q_\theta(s_i,a) - Q_{\text{obs\_min},i})$ where $\text{scale}_i = \frac{Q_{\max} - Q_{\min}}{Q_{\text{obs\_max},i} - Q_{\text{obs\_min},i}} > 0$. Since the transformation is a positive affine map applied independently per sample, it strictly preserves action ordering within each sample.
-\end{proof}
-
 \subsubsection{Computational Complexity Analysis}
 
 \textbf{Time Complexity:}
@@ -660,7 +705,7 @@ For each sample $i$, we have $\hat{Q}(s_i,a) = Q_{\min} + \text{scale}_i \cdot (
 
 \subsubsection{Minimal Integration (Recommended)}
 
-For existing codebases, QBound requires only 3-5 lines of changes:
+For existing codebases, QBound requires only 2-3 lines of changes:
 
 \begin{lstlisting}
 # Before: Standard DQN target computation
@@ -670,8 +715,10 @@ targets = rewards + gamma * next_q_values * (1 - dones)
 next_q_values = torch.clamp(next_q_values, Q_min, Q_max)
 targets = rewards + gamma * next_q_values * (1 - dones)
 targets = torch.clamp(targets, Q_min, Q_max)
-current_q_values = torch.clamp(current_q_values, Q_min, Q_max)
+# Note: current_q_values are NOT clipped to preserve gradients
 \end{lstlisting}
+
+\textbf{Key design choice:} We clip next-state Q-values and targets, but \textit{not} current Q-values. Clipping current Q-values would zero gradients when $Q(s,a)$ violates bounds, preventing the network from learning to correct violations. Instead, bounded targets naturally guide the network toward compliant Q-values through standard TD learning.
 
 
 \subsection{Hard vs Soft QBound: Critical Implementation Choice}
@@ -725,6 +772,8 @@ where $\lambda$ is a penalty weight (typically 0.1-1.0).
     \item Actor-critic methods requiring $\nabla_a Q(s,a)$ for policy gradients
     \item Scenarios where approximate bounds are sufficient
 \end{itemize}
+
+\textbf{Empirical status:} Soft QBound (penalty-based) is theoretically motivated for continuous control but \textit{was not empirically evaluated} in this work. Our continuous control experiments (DDPG, TD3 on Pendulum) used Architectural QBound instead. Empirical validation of soft penalty QBound remains future work.
 
 \subsubsection{Mathematical Analysis: Why Hard QBound Fails on Continuous Control}
 
@@ -1523,7 +1572,7 @@ We presented \textbf{QBound}, a stabilization mechanism that prevents overestima
 
 \subsection{Key Results}
 
-\textbf{Finding on reward sign dependence (5 seeds, 50 experiments):}
+\textbf{Finding on reward sign dependence (5 seeds, 40 runs):}
 \begin{itemize}
     \item \textbf{Positive dense rewards (CartPole):} +12-34\% improvement across 4 DQN variants. CartPole's $r = +1$ per timestep allows unbounded Q-value growth during training. QBound's explicit $Q_{\max} = 99.34$ prevents overestimation, stabilizing learning. Largest gain in DDQN (+33.6\%), addressing known DDQN CartPole challenges. All improvements statistically significant (non-overlapping 95\% CIs).
 
