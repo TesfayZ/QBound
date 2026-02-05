@@ -1187,10 +1187,9 @@ Environment & Method & Mean Reward & Std Dev & Change \\
 \multirow{2}{*}{Positive Dense} & CartPole DQN & +12.0\% & 4/5 (80\%) & Mostly \\
 & CartPole Dueling & +22.5\% & \textbf{5/5 (100\%)} & \textbf{Yes} \\
 \midrule
-\multirow{4}{*}{Negative Dense} & Pendulum DQN & -3.3\% & 2/5 (40\%) & No \\
-& Pendulum DDPG & -8.0\% & 2/5 (40\%) & No \\
-& Pendulum TD3 & +4.1\% & 4/5 (80\%) & Mostly \\
-& Pendulum PPO & -10.8\% & 3/5 (60\%) & No \\
+\multirow{3}{*}{Negative Dense} & Pendulum DQN & -3.3\% & 2/5 (40\%) & No \\
+& Pendulum DDPG (Soft) & \textbf{+25.0\%} & 2/5 (40\%) & No \\
+& Pendulum TD3 (Soft) & \textbf{+15.3\%} & 3/5 (60\%) & No \\
 \midrule
 \multirow{2}{*}{Sparse Terminal} & GridWorld & -1.0\% & 1/5 (20\%) & No \\
 & FrozenLake & -1.7\% & 3/5 (60\%) & No \\
@@ -1204,8 +1203,8 @@ Environment & Method & Mean Reward & Std Dev & Change \\
  QBound is \textit{not} universally effective. Per-seed win rates reveal the true picture:
 \begin{itemize}
     \item \checkmark \textbf{Reliable (1/8):} Only CartPole Dueling shows 100\% win rate across all seeds
-    \item \textcolor{orange}{$\sim$} \textbf{Mostly reliable (2/8):} CartPole DQN and Pendulum TD3 show 80\% win rates, but individual seeds can fail significantly
-    \item $\times$ \textbf{Unreliable (5/8):} Win rates of 20-60\% indicate QBound performs no better than chance
+    \item \textcolor{orange}{$\sim$} \textbf{Mostly reliable (1/8):} CartPole DQN shows 80\% win rate, but individual seeds can fail
+    \item $\times$ \textbf{Unreliable (6/8):} Win rates of 20-60\% indicate QBound performs no better than chance. However, DDPG and TD3 with Soft QBound show strong mean improvements (+25\%, +15\%) despite low win rates, driven by large gains on specific seeds.
 \end{itemize}
 
 \subsubsection{Statistical Significance Testing}
@@ -1238,8 +1237,8 @@ While mean improvements are informative, they can mask seed-dependent variabilit
 & CartPole Dueling & \textbf{5/5 (100\%)} & +22.5\% & \textbf{Yes} \\
 \midrule
 \multirow{3}{*}{Negative Dense} & Pendulum DQN & 2/5 (40\%) & -3.3\% & No \\
-& Pendulum DDPG & 2/5 (40\%) & -8.0\% & No \\
-& Pendulum TD3 & 4/5 (80\%) & +4.1\% & Mostly \\
+& Pendulum DDPG (Soft) & 2/5 (40\%) & \textbf{+25.0\%} & No \\
+& Pendulum TD3 (Soft) & 3/5 (60\%) & \textbf{+15.3\%} & No \\
 \midrule
 \multirow{2}{*}{Sparse Terminal} & GridWorld & 1/5 (20\%) & -1.0\% & No \\
 & FrozenLake & 3/5 (60\%) & -1.7\% & No \\
@@ -1253,8 +1252,8 @@ While mean improvements are informative, they can mask seed-dependent variabilit
 \textbf{Key Observations:}
 \begin{itemize}
     \item \textbf{CartPole Dueling is the only 100\% consistent result.} All 5 seeds show improvement with QBound.
-    \item \textbf{CartPole DQN and Pendulum TD3 show 80\% win rates} but have seeds with significant degradation (CartPole seed 44: -8.7\%; TD3 seed 44: -64.7\%).
-    \item \textbf{Negative reward environments show high variance.} DDPG ranges from +26.0\% (seed 44) to -52.3\% (seed 43).
+    \item \textbf{CartPole DQN shows 80\% win rate} but has one seed with degradation (seed 44: -8.7\%).
+    \item \textbf{Soft QBound on DDPG/TD3 shows high variance but strong mean improvements.} DDPG ranges from +61.5\% (seed 42) to -4.2\% (seed 46); TD3 ranges from +53.6\% (seed 43) to -57.7\% (seed 44). Large gains on specific seeds drive the positive means despite low win rates.
     \item \textbf{Sparse reward environments show no consistent benefit.} Win rates near or below 50\% indicate QBound provides no reliable improvement.
 \end{itemize}
 
