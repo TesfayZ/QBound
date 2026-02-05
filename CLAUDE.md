@@ -13,7 +13,7 @@ A research project implementing QBound, a technique for bounding Q-values in Dee
 **NEW**: Experiments are organized by QBound applicability according to Rule 3:
 
 ### Category 1: Time-Step Dependent Rewards (Static + Dynamic QBound)
-**6 scripts, 30 total methods**
+**5 scripts, 27 total methods**
 
 Environments where rewards accumulate predictably with time steps:
 - **CartPole-v1**: Dense positive reward (+1 per step)
@@ -25,7 +25,6 @@ Scripts:
 3. `train_pendulum_dqn_full_qbound.py` (6 methods: DQN/DDQN × baseline/static/dynamic)
 4. `train_pendulum_ddpg_full_qbound.py` (3 methods: DDPG × baseline/static/dynamic with softplus_clip)
 5. `train_pendulum_td3_full_qbound.py` (3 methods: TD3 × baseline/static/dynamic with softplus_clip)
-6. `train_pendulum_ppo_full_qbound.py` (3 methods: PPO × baseline/static/dynamic with softplus_clip on V(s))
 
 ### Category 2: Sparse/State-Dependent Rewards (Static QBound Only)
 **4 scripts, 16 total methods**
@@ -145,7 +144,7 @@ python3 experiments/cartpole/train_cartpole_dueling_full_qbound.py --seed 42
 # Pendulum experiments
 python3 experiments/pendulum/train_pendulum_dqn_full_qbound.py --seed 42
 python3 experiments/pendulum/train_pendulum_ddpg_full_qbound.py --seed 42
-python3 experiments/ppo/train_pendulum_ppo_full_qbound.py --seed 42
+python3 experiments/pendulum/train_pendulum_td3_full_qbound.py --seed 42
 ```
 
 **Sparse/State-dependent (Static QBound only)**:
@@ -317,7 +316,7 @@ See `docs/CHANGES.md` for details.
 - Violation magnitudes: How far beyond bounds
 - Separate tracking for next-state Q vs TD targets
 
-**Soft QBound (DDPG/TD3/PPO):**
+**Soft QBound (DDPG/TD3):**
 - Clipping activation rate: % of Q-values exceeding bounds (before soft clipping)
 - Clipping magnitude: How far Q-values deviate from bounds
 - Gradient flow metrics: Verifies non-zero gradients during clipping
@@ -347,6 +346,19 @@ See `docs/QBOUND_VIOLATION_TRACKING.md` for:
 - Visualization guidelines
 - Interpretation for reviewers
 
+### Key Violation Rate Findings
+
+| Environment | Algorithm | Violation Rate | QBound Effect |
+|-------------|-----------|----------------|---------------|
+| CartPole (positive dense) | DQN | 13.3% | +12% to +34% |
+| Pendulum (negative dense) | DQN | 55.5% | -7.1% |
+| Pendulum (negative dense) | DDQN | 3.8% | -7.1% |
+| Pendulum (negative dense) | DDPG | 29.7% | +25.0% |
+| Pendulum (negative dense) | TD3 | 3.5% | +15.3% |
+| Sparse rewards (all) | DQN | 0.0% - 1.5% | Neutral |
+
+**Under Investigation:** DQN variants show degradation on dense negative rewards despite high violation rates. Pendulum DQN has 55.5% violations (higher than CartPole's 13.3%) yet QBound degrades performance by -7.1%. Why high violations fail to benefit from clipping on dense negative rewards is under investigation.
+
 ## Known Issues
 
 1. **Q_max values based on theoretical bounds** - May need empirical validation
@@ -372,7 +384,7 @@ See `docs/ANALYSIS_SUMMARY.md` for detailed analysis.
 - CartPole Dueling: `experiments/cartpole/train_cartpole_dueling_full_qbound.py`
 - Pendulum DQN: `experiments/pendulum/train_pendulum_dqn_full_qbound.py`
 - Pendulum DDPG: `experiments/pendulum/train_pendulum_ddpg_full_qbound.py`
-- Pendulum PPO: `experiments/ppo/train_pendulum_ppo_full_qbound.py`
+- Pendulum TD3: `experiments/pendulum/train_pendulum_td3_full_qbound.py`
 
 **Sparse/State-dependent (Static QBound only)**:
 - GridWorld: `experiments/gridworld/train_gridworld_dqn_static_qbound.py`

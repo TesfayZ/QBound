@@ -209,8 +209,8 @@ def get_experiment_result_pattern(script_path, seed):
     # Extract environment and experiment type from script path
     # e.g., "experiments/cartpole/train_cartpole_dqn_full_qbound.py"
     #    -> results/cartpole/dqn_full_qbound_seed42_*.json
-    # e.g., "experiments/ppo/train_pendulum_ppo_full_qbound.py"
-    #    -> results/pendulum/ppo_full_qbound_seed42_*.json
+    # e.g., "experiments/pendulum/train_pendulum_ddpg_full_qbound.py"
+    #    -> results/pendulum/ddpg_full_qbound_seed42_*.json
 
     script_name = Path(script_path).stem  # e.g., "train_cartpole_dqn_full_qbound"
 
@@ -223,7 +223,7 @@ def get_experiment_result_pattern(script_path, seed):
     env = parts[0]  # e.g., "cartpole" or "pendulum"
 
     # Algorithm and variant (everything after environment)
-    algo_variant = '_'.join(parts[1:])  # e.g., "dqn_full_qbound" or "ppo_full_qbound"
+    algo_variant = '_'.join(parts[1:])  # e.g., "dqn_full_qbound" or "ddpg_full_qbound"
 
     # Check both timestamped and seed-specific result files
     result_dir = f"results/{env}"

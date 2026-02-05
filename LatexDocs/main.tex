@@ -491,21 +491,33 @@ If $r(s,a,s') \leq 0$ for all transitions, then $Q^\pi(s,a) \leq 0$ for any poli
 
 \begin{table}[h]
 \centering
-\caption{QBound Effectiveness by Reward Type (5 seeds)}
+\caption{QBound Effectiveness by Reward Type (5 seeds): Mean Change, Win Rate, and Violation Rate}
 \label{tab:reward-sign-summary-theory}
-\begin{tabular}{lccc}
+\small
+\begin{tabular}{llcccc}
 \toprule
-Reward Type & Violation Rate & QBound Effect & Recommendation \\
+Reward Type & Algorithm & Mean $\Delta$ & Win Rate & Violation Rate & Status \\
 \midrule
-\textbf{Positive Dense} (CartPole) & 12.9\% & +12\% to +34\% & \textbf{Use Hard Clipping} \\
-\textbf{Sparse Positive} (GridWorld) & $<$1\% & Neutral & No benefit \\
-\textbf{Sparse Negative} (MountainCar) & 0.4\% & Neutral & No benefit \\
-\textbf{Sparse Negative} (Acrobot) & 0.8\% & Neutral & No benefit \\
+\textbf{Positive Dense} (CartPole) & DQN & +12.0\% & 4/5 (80\%) & 13.3\% & \textbf{Recommended} \\
+\textbf{Positive Dense} (CartPole) & Dueling & +22.5\% & 5/5 (100\%) & 13.3\% & \textbf{Recommended} \\
+\midrule
+\textbf{Sparse Positive} (GridWorld) & DQN & -1.0\% & 1/5 (20\%) & 1.5\% & No benefit \\
+\textbf{Sparse Positive} (FrozenLake) & DQN & -1.7\% & 3/5 (60\%) & 0.0\% & No benefit \\
+\midrule
+\textbf{Sparse Negative} (MountainCar) & DQN & -8.2\% & 1/5 (20\%) & 0.4\% & No benefit \\
+\textbf{Sparse Negative} (Acrobot) & DQN & -4.9\% & 2/5 (40\%) & 0.8\% & No benefit \\
+\midrule
+\textbf{Negative Dense} (Pendulum) & DQN & -7.1\% & 2/5 (40\%) & 55.5\% & \textbf{Under investigation} \\
+\textbf{Negative Dense} (Pendulum) & DDQN & -7.1\% & 2/5 (40\%) & 3.8\% & \textbf{Under investigation} \\
+\textbf{Negative Dense} (Pendulum) & DDPG & +25.0\% & 2/5 (40\%) & 29.7\% & Mixed \\
+\textbf{Negative Dense} (Pendulum) & TD3 & +15.3\% & 3/5 (60\%) & 3.5\% & Mixed \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Recommendation:} Use QBound (hard clipping) for positive dense rewards where overestimation causes frequent bound violations. For sparse or negative rewards, QBound provides no benefit as violations are rare.
+\textbf{Under Investigation:} DQN variants show degradation on dense negative rewards despite high violation rates. Pendulum DQN has 55.5\% violations (higher than CartPole's 13.3\%) yet QBound degrades performance by -7.1\%. Why high violations fail to benefit from clipping on dense negative rewards is under investigation.
+
+\textbf{Recommendation:} Use Hard QBound for positive dense rewards where overestimation causes frequent bound violations. For sparse rewards, violations are rare so QBound provides no benefit. For negative dense rewards with DDPG/TD3, Soft QBound shows mixed results (+15\% to +25\% mean improvement but only 40-60\% win rate).
 
 \section{QBound Bound Selection Strategy}
 
@@ -1028,7 +1040,25 @@ TD3 & $-202.4 \pm 71.9$ & $-171.5 \pm 34.9$ & \textcolor{green}{+15.3\%} \\
     \item \textbf{High variance:} Both methods show substantial variance, suggesting Soft QBound effectiveness is seed-dependent on negative reward environments.
 \end{itemize}
 
-\textbf{Comparison with Hard QBound on DQN:} While Hard QBound degrades Pendulum DQN by -7.1\%, Soft QBound shows mean improvement for DDPG/TD3. This suggests the QBound type matters: Soft QBound may be more suitable for negative reward environments than Hard QBound.
+\textbf{Violation Rates (Soft QBound):}
+
+\begin{table}[H]
+\centering
+\caption{Pendulum DDPG/TD3: Violation Rates by Seed (\%)}
+\small
+\begin{tabular}{@{}lccccc|c@{}}
+\toprule
+\textbf{Method} & \textbf{Seed 42} & \textbf{Seed 43} & \textbf{Seed 44} & \textbf{Seed 45} & \textbf{Seed 46} & \textbf{Mean} \\
+\midrule
+DDPG & 42.5\% & 27.7\% & 4.1\% & 24.0\% & 50.4\% & 29.7\% \\
+TD3 & 8.5\% & 3.8\% & 0.5\% & 2.8\% & 1.9\% & 3.5\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Note:} Violation rates vary across algorithms: Pendulum DQN shows 55.5\%, DDPG 29.7\%, TD3 3.5\%.
+
+\textbf{Comparison with Hard QBound on DQN:} Hard QBound degrades Pendulum DQN by -7.1\% despite 55.5\% violation rate. Soft QBound on DDPG/TD3 shows +15\% to +25\% improvement. Why DQN variants fail on dense negative rewards despite high violations is under investigation.
 
 \subsection{Comprehensive Multi-Seed Evaluation}
 \label{subsec:multiseed-results}
@@ -1113,14 +1143,15 @@ Double DQN + Static QBound & -182.05 & 4.94 & \textcolor{red}{-7.1\%} & \textcol
 \end{tabular}
 \end{table}
 
-\textbf{Key Finding:} For negative reward environments, static QBound shows degraded performance compared to baselines. This indicates that:
+\textbf{Key Finding:} For negative reward environments, static QBound shows degraded performance compared to baselines despite high violation rates.
+
+\textbf{Violation Rates (Pendulum DQN/DDQN):}
 \begin{itemize}
-    \item \textbf{Reward-sign dependence:} QBound's effectiveness depends fundamentally on reward sign
-    \item \textbf{Low violation rates:} Negative rewards naturally push Q-values toward 0, staying within bounds
-    \item \textbf{Negative conclusion:} QBound does not help for negative reward environments with DQN variants
+    \item Pendulum DQN: 55.5\% mean violation rate (seeds 43-45: 51\%--62\%)
+    \item Pendulum DDQN: 3.8\% mean violation rate (seeds 43-45: 2\%--7\%)
 \end{itemize}
 
-\textbf{Interpretation:} QBound shows asymmetric results---beneficial for positive rewards but neutral/harmful for negative rewards. Analysis shows violation rates are extremely low ($<1\%$) for negative reward environments, explaining why explicit bounds provide no benefit.
+\textbf{Interpretation:} Despite high violation rates on Pendulum DQN (55.5\%), QBound still degrades performance (-7.1\%). This contradicts the expectation that high violations would benefit from clipping. Why DQN variants fail on dense negative rewards despite high violations is under investigation.
 
 \textbf{Note on Scope:} On-policy methods (e.g., PPO, A2C, REINFORCE) are outside QBound's scope because they do not suffer from the same overestimation dynamics. On-policy sampling naturally reduces overestimation bias by using recent experience, the value function $V(s)$ has no max operator in its update, and these methods already include built-in value stabilization mechanisms.
 
@@ -1187,10 +1218,9 @@ Environment & Method & Mean Reward & Std Dev & Change \\
 \multirow{2}{*}{Positive Dense} & CartPole DQN & +12.0\% & 4/5 (80\%) & Mostly \\
 & CartPole Dueling & +22.5\% & \textbf{5/5 (100\%)} & \textbf{Yes} \\
 \midrule
-\multirow{4}{*}{Negative Dense} & Pendulum DQN & -3.3\% & 2/5 (40\%) & No \\
-& Pendulum DDPG & -8.0\% & 2/5 (40\%) & No \\
-& Pendulum TD3 & +4.1\% & 4/5 (80\%) & Mostly \\
-& Pendulum PPO & -10.8\% & 3/5 (60\%) & No \\
+\multirow{3}{*}{Negative Dense} & Pendulum DQN & -3.3\% & 2/5 (40\%) & No \\
+& Pendulum DDPG (Soft) & \textbf{+25.0\%} & 2/5 (40\%) & No \\
+& Pendulum TD3 (Soft) & \textbf{+15.3\%} & 3/5 (60\%) & No \\
 \midrule
 \multirow{2}{*}{Sparse Terminal} & GridWorld & -1.0\% & 1/5 (20\%) & No \\
 & FrozenLake & -1.7\% & 3/5 (60\%) & No \\
@@ -1204,8 +1234,8 @@ Environment & Method & Mean Reward & Std Dev & Change \\
  QBound is \textit{not} universally effective. Per-seed win rates reveal the true picture:
 \begin{itemize}
     \item \checkmark \textbf{Reliable (1/8):} Only CartPole Dueling shows 100\% win rate across all seeds
-    \item \textcolor{orange}{$\sim$} \textbf{Mostly reliable (2/8):} CartPole DQN and Pendulum TD3 show 80\% win rates, but individual seeds can fail significantly
-    \item $\times$ \textbf{Unreliable (5/8):} Win rates of 20-60\% indicate QBound performs no better than chance
+    \item \textcolor{orange}{$\sim$} \textbf{Mostly reliable (1/8):} CartPole DQN shows 80\% win rate, but individual seeds can fail
+    \item $\times$ \textbf{Unreliable (6/8):} Win rates of 20-60\% indicate QBound performs no better than chance. However, DDPG and TD3 with Soft QBound show strong mean improvements (+25\%, +15\%) despite low win rates, driven by large gains on specific seeds.
 \end{itemize}
 
 \subsubsection{Statistical Significance Testing}
@@ -1238,8 +1268,8 @@ While mean improvements are informative, they can mask seed-dependent variabilit
 & CartPole Dueling & \textbf{5/5 (100\%)} & +22.5\% & \textbf{Yes} \\
 \midrule
 \multirow{3}{*}{Negative Dense} & Pendulum DQN & 2/5 (40\%) & -3.3\% & No \\
-& Pendulum DDPG & 2/5 (40\%) & -8.0\% & No \\
-& Pendulum TD3 & 4/5 (80\%) & +4.1\% & Mostly \\
+& Pendulum DDPG (Soft) & 2/5 (40\%) & \textbf{+25.0\%} & No \\
+& Pendulum TD3 (Soft) & 3/5 (60\%) & \textbf{+15.3\%} & No \\
 \midrule
 \multirow{2}{*}{Sparse Terminal} & GridWorld & 1/5 (20\%) & -1.0\% & No \\
 & FrozenLake & 3/5 (60\%) & -1.7\% & No \\
@@ -1253,8 +1283,8 @@ While mean improvements are informative, they can mask seed-dependent variabilit
 \textbf{Key Observations:}
 \begin{itemize}
     \item \textbf{CartPole Dueling is the only 100\% consistent result.} All 5 seeds show improvement with QBound.
-    \item \textbf{CartPole DQN and Pendulum TD3 show 80\% win rates} but have seeds with significant degradation (CartPole seed 44: -8.7\%; TD3 seed 44: -64.7\%).
-    \item \textbf{Negative reward environments show high variance.} DDPG ranges from +26.0\% (seed 44) to -52.3\% (seed 43).
+    \item \textbf{CartPole DQN shows 80\% win rate} but has one seed with degradation (seed 44: -8.7\%).
+    \item \textbf{Soft QBound on DDPG/TD3 shows high variance but strong mean improvements.} DDPG ranges from +61.5\% (seed 42) to -4.2\% (seed 46); TD3 ranges from +53.6\% (seed 43) to -57.7\% (seed 44). Large gains on specific seeds drive the positive means despite low win rates.
     \item \textbf{Sparse reward environments show no consistent benefit.} Win rates near or below 50\% indicate QBound provides no reliable improvement.
 \end{itemize}
 
