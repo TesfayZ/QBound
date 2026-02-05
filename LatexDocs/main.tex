@@ -1064,9 +1064,9 @@ TD3 & 8.5\% & 3.8\% & 0.5\% & 2.8\% & 1.9\% & 3.5\% \\
 \end{tabular}
 \end{table}
 
-\textbf{Note:} Unlike DQN on negative rewards ($<$1\% violation rate), DDPG/TD3 show higher and more variable violation rates. Why violation rates differ across algorithms and seeds on negative reward environments is under investigation.
+\textbf{Note:} Violation rates vary across algorithms: Pendulum DQN shows 55.5\%, DDPG 29.7\%, TD3 3.5\%.
 
-\textbf{Comparison with Hard QBound on DQN:} While Hard QBound degrades Pendulum DQN by -7.1\%, Soft QBound shows mean improvement for DDPG/TD3. Why this difference occurs is under investigation.
+\textbf{Comparison with Hard QBound on DQN:} Hard QBound degrades Pendulum DQN by -7.1\% despite 55.5\% violation rate. Soft QBound on DDPG/TD3 shows +15\% to +25\% improvement. Why DQN variants fail on dense negative rewards despite high violations is under investigation.
 
 \subsection{Comprehensive Multi-Seed Evaluation}
 \label{subsec:multiseed-results}
@@ -1159,7 +1159,7 @@ Double DQN + Static QBound & -182.05 & 4.94 & \textcolor{red}{-7.1\%} & \textcol
     \item Pendulum DDQN: 3.8\% mean violation rate (seeds 43-45: 2\%--7\%)
 \end{itemize}
 
-\textbf{Interpretation:} Despite high violation rates on Pendulum DQN (55.5\%), QBound still degrades performance (-7.1\%). This contradicts the expectation that high violations would benefit from clipping. The relationship between violation rate and performance is under investigation.
+\textbf{Interpretation:} Despite high violation rates on Pendulum DQN (55.5\%), QBound still degrades performance (-7.1\%). This contradicts the expectation that high violations would benefit from clipping. Why DQN variants fail on dense negative rewards despite high violations is under investigation.
 
 \textbf{Note on Scope:} On-policy methods (e.g., PPO, A2C, REINFORCE) are outside QBound's scope because they do not suffer from the same overestimation dynamics. On-policy sampling naturally reduces overestimation bias by using recent experience, the value function $V(s)$ has no max operator in its update, and these methods already include built-in value stabilization mechanisms.
 

@@ -346,6 +346,19 @@ See `docs/QBOUND_VIOLATION_TRACKING.md` for:
 - Visualization guidelines
 - Interpretation for reviewers
 
+### Key Violation Rate Findings
+
+| Environment | Algorithm | Violation Rate | QBound Effect |
+|-------------|-----------|----------------|---------------|
+| CartPole (positive dense) | DQN | 13.3% | +12% to +34% |
+| Pendulum (negative dense) | DQN | 55.5% | -7.1% |
+| Pendulum (negative dense) | DDQN | 3.8% | -7.1% |
+| Pendulum (negative dense) | DDPG | 29.7% | +25.0% |
+| Pendulum (negative dense) | TD3 | 3.5% | +15.3% |
+| Sparse rewards (all) | DQN | 0.0% - 1.5% | Neutral |
+
+**Under Investigation:** DQN variants show degradation on dense negative rewards despite high violation rates. Pendulum DQN has 55.5% violations (higher than CartPole's 13.3%) yet QBound degrades performance by -7.1%. Why high violations fail to benefit from clipping on dense negative rewards is under investigation.
+
 ## Known Issues
 
 1. **Q_max values based on theoretical bounds** - May need empirical validation
