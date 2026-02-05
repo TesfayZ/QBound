@@ -253,11 +253,12 @@ Q_min = 0.0
 
 **Important:** QBound is a *specialized technique*, not a universal improvement.
 
-| Environment Type | Recommendation | Reason |
-|------------------|----------------|--------|
-| Positive dense rewards | **Recommended** | +12% to +33.6% improvement |
-| Sparse terminal rewards | Not recommended | Bounds trivially satisfied |
-| Negative rewards | **Do not use** | Causes degradation (-3% to -47%) |
+| Environment Type | QBound Type | Recommendation | Reason |
+|------------------|-------------|----------------|--------|
+| Positive dense rewards | Hard | **Recommended** | +12% to +33.6% improvement |
+| Sparse terminal rewards | Hard | Not recommended | Bounds trivially satisfied |
+| Negative rewards (DQN) | Hard | **Do not use** | Degradation (-7% to -47%) |
+| Negative rewards (DDPG/TD3) | Soft | Mixed | +15-25% mean but high variance |
 
 ---
 
