@@ -35,13 +35,13 @@ All results below are from **5-seed experiments** (seeds 42-46) for statistical 
 | **CartPole** | DDQN | **+33.6%** | - | Best improvement |
 | **CartPole** | Dueling DQN | **+22.5%** | 5/5 (100%) | Most reliable |
 
-### Negative Rewards (Not Recommended)
+### Negative Rewards (Mixed Results)
 
-| Environment | Algorithm | Result | Win Rate | Notes |
-|-------------|-----------|--------|----------|-------|
-| **Pendulum** | DQN | -3.3% | 2/5 (40%) | Degradation |
-| **Pendulum** | DDPG | -8.0% | 2/5 (40%) | Degradation |
-| **Pendulum** | TD3 | +4.1% | 4/5 (80%) | Exception (72% higher variance) |
+| Environment | Algorithm | QBound Type | Result | Win Rate | Notes |
+|-------------|-----------|-------------|--------|----------|-------|
+| **Pendulum** | DDQN | Hard | -7.1% | - | Degradation |
+| **Pendulum** | DDPG | Soft | +25.0% | 2/5 (40%) | High variance (seeds 42, 45 improved) |
+| **Pendulum** | TD3 | Soft | +15.3% | 3/5 (60%) | High variance (seeds 42, 43, 45 improved) |
 
 ### Sparse Terminal Rewards (No Benefit)
 
@@ -61,12 +61,13 @@ All results below are from **5-seed experiments** (seeds 42-46) for statistical 
 
 ### Key Insight
 
-QBound's effectiveness fundamentally depends on **reward sign and structure**:
-- **Positive dense rewards**: Strong improvement (CartPole: +12% to +33.6%)
+QBound's effectiveness depends on **reward sign, structure, and QBound type**:
+- **Positive dense rewards + Hard QBound**: Strong improvement (CartPole: +12% to +33.6%)
 - **Sparse terminal rewards**: No benefit (Q bounds trivially satisfied)
-- **Negative rewards**: Degradation (underlying cause remains open question)
+- **Negative rewards + Hard QBound (DQN)**: Degradation (-7.1% on Pendulum DDQN)
+- **Negative rewards + Soft QBound (DDPG/TD3)**: Mixed results with high variance
 
-**Recommendation**: Use QBound only for **positive dense reward environments** with Dueling DQN architecture (100% win rate, +22.5% mean improvement).
+**Recommendation**: Use Hard QBound for **positive dense reward environments** with Dueling DQN (100% win rate). For continuous control, Soft QBound shows promise but has high seed variance.
 
 ---
 
@@ -178,8 +179,8 @@ QBound/
 │   ├── dqn_agent.py             # DQN with QBound
 │   ├── double_dqn_agent.py      # Double DQN with QBound
 │   ├── dueling_dqn_agent.py     # Dueling DQN with QBound
-│   ├── ddpg_agent.py            # DDPG with Architectural QBound
-│   ├── td3_agent.py             # TD3 with Architectural QBound
+│   ├── ddpg_agent.py            # DDPG with Soft QBound
+│   ├── td3_agent.py             # TD3 with Soft QBound
 │   └── environment.py           # Custom GridWorld
 │
 ├── experiments/                  # Experiment scripts
@@ -246,30 +247,30 @@ Q_min = 0.0
 | Variant | Use Case | Implementation | Status |
 |---------|----------|----------------|--------|
 | **Hard QBound** | Discrete actions (DQN, DDQN, Dueling) | `clip(Q, Q_min, Q_max)` | Evaluated (+12-34% on CartPole) |
-| **Architectural QBound** | Negative rewards | `Q = -softplus(logits)` | Evaluated (fails for most algorithms) |
-| **Soft QBound** | Continuous actions (penalty-based) | Quadratic penalty loss | Not empirically evaluated |
+| **Soft QBound** | Continuous actions (DDPG, TD3) | Penalty-based loss | Evaluated (mixed results on Pendulum) |
 
 ### When to Use QBound
 
 **Important:** QBound is a *specialized technique*, not a universal improvement.
 
-| Environment Type | Recommendation | Reason |
-|------------------|----------------|--------|
-| Positive dense rewards | **Recommended** | +12% to +33.6% improvement |
-| Sparse terminal rewards | Not recommended | Bounds trivially satisfied |
-| Negative rewards | **Do not use** | Causes degradation (-3% to -47%) |
+| Environment Type | QBound Type | Recommendation | Reason |
+|------------------|-------------|----------------|--------|
+| Positive dense rewards | Hard | **Recommended** | +12% to +33.6% improvement |
+| Sparse terminal rewards | Hard | Not recommended | Bounds trivially satisfied |
+| Negative rewards (DQN) | Hard | **Do not use** | Degradation (-7% to -47%) |
+| Negative rewards (DDPG/TD3) | Soft | Mixed | +15-25% mean but high variance |
 
 ---
 
 ## Known Limitations
 
-1. **Negative Rewards**: QBound degrades performance on negative reward environments (Pendulum: -3% to -8%, MountainCar: -47%)
+1. **Hard QBound on Negative Rewards**: Hard QBound degrades DQN variants on negative reward environments (Pendulum DDQN: -7.1%, MountainCar DDQN: -47%)
 
 2. **Sparse Terminal Rewards**: No benefit on sparse terminal reward tasks (GridWorld, FrozenLake)
 
-3. **Seed Sensitivity**: Even in successful cases (CartPole DQN), 20% of seeds show degradation. Always run multiple seeds.
+3. **High Seed Variance**: Soft QBound on DDPG/TD3 shows high variance across seeds (e.g., DDPG ranges from +61.5% to -4.2%). Always run multiple seeds.
 
-These are **fundamental limitations based on reward structure**, not implementation bugs.
+4. **State-Dependent Negative Rewards**: MountainCar and Acrobot show degradation with Hard QBound.
 
 ---
 

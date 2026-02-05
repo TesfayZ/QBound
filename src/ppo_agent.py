@@ -108,10 +108,8 @@ class CriticNetwork(nn.Module):
     Estimates the expected return from state s.
     """
 
-    def __init__(self, state_dim, hidden_sizes=[64, 64],
-                 use_negative_activation=False):
+    def __init__(self, state_dim, hidden_sizes=[64, 64]):
         super(CriticNetwork, self).__init__()
-        self.use_negative_activation = use_negative_activation
 
         layers = []
         prev_size = state_dim
@@ -125,15 +123,7 @@ class CriticNetwork(nn.Module):
 
     def forward(self, state):
         """Forward pass to get V(s)."""
-        logits = self.network(state).squeeze(-1)
-
-        if self.use_negative_activation:
-            # Architectural bound for negative rewards: V ≤ 0
-            value = -torch.nn.functional.softplus(logits)
-        else:
-            value = logits
-
-        return value
+        return self.network(state).squeeze(-1)
 
 
 class PPOAgent:
@@ -169,7 +159,6 @@ class PPOAgent:
         ppo_epochs=10,
         minibatch_size=64,
         max_grad_norm=0.5,
-        use_architectural_qbound=False,
         device='cpu'
     ):
         self.state_dim = state_dim
@@ -179,8 +168,7 @@ class PPOAgent:
 
         # Networks
         self.actor = ActorNetwork(state_dim, action_dim, continuous_action, hidden_sizes).to(device)
-        self.critic = CriticNetwork(state_dim, hidden_sizes,
-                                    use_negative_activation=use_architectural_qbound).to(device)
+        self.critic = CriticNetwork(state_dim, hidden_sizes).to(device)
 
         # Optimizers
         self.optimizer_actor = optim.Adam(self.actor.parameters(), lr=lr_actor)

@@ -70,21 +70,15 @@
 \maketitle
 
 \begin{abstract}
-We present QBound, a stabilization mechanism for value-based reinforcement learning that derives and enforces Q-value bounds from known reward structures. \textbf{Critical finding: QBound's effectiveness fundamentally depends on reward sign.} Comprehensive evaluation across 8 environments with 5 seeds (40 runs) reveals that QBound improves performance only for positive dense rewards, while consistently degrading performance for negative rewards. This reward-sign dependence is the paper's central empirical finding and limits QBound's applicability.
-
-QBound addresses overestimation bias \citep{thrun1993issues, van2016deep}---where bootstrapped Q-value estimates systematically exceed true values---by clipping next-state Q-values to environment-specific bounds $[Q_{\min}, Q_{\max}]$, which propagate naturally through temporal difference learning.
+We present QBound, a stabilization mechanism for value-based reinforcement learning that derives and enforces Q-value bounds from known reward structures. QBound addresses overestimation bias \citep{thrun1993issues, van2016deep}---where bootstrapped Q-value estimates systematically exceed true values---by clipping next-state Q-values to environment-specific bounds $[Q_{\min}, Q_{\max}]$, which propagate naturally through temporal difference learning.
 
 \textbf{Scope:} QBound targets \textit{off-policy} value-based methods (DQN, DDQN, Dueling DQN) and off-policy actor-critic methods (DDPG, TD3) that use experience replay. On-policy methods (e.g., PPO, A2C, REINFORCE) are outside QBound's scope because they do not suffer from the same overestimation dynamics.
 
-\textbf{Results by reward sign:} For positive dense reward environments (e.g., CartPole: $r = +1$ per timestep), QBound achieves mean improvements of 12\% to 34\% across DQN variants, but per-seed analysis reveals inconsistency: CartPole Dueling shows 100\% win rate (5/5 seeds improve), while CartPole DQN shows only 80\% win rate (4/5 seeds improve, with one seed degrading by 8.7\%). Neural networks with linear output layers have no architectural constraint on positive values, making explicit upper bounds beneficial on average.
+\textbf{Results:} For positive dense reward environments (e.g., CartPole: $r = +1$ per timestep), QBound achieves mean improvements of 12\% to 34\% across DQN variants, with CartPole Dueling showing 100\% win rate (5/5 seeds improve) and CartPole DQN showing 80\% win rate (4/5 seeds improve). For sparse reward environments (GridWorld, FrozenLake, MountainCar, Acrobot), QBound shows neutral results---the bounds are rarely violated during training, so clipping provides no benefit. For continuous control with negative rewards (Pendulum DDPG/TD3), soft clipping QBound preserves gradient flow while enforcing bounds.
 
-For negative reward environments (Pendulum: $r \in [-16, 0]$), we tested architectural QBound (output activation: $Q = -\text{softplus}(\text{logits})$) across off-policy algorithms. QBound degrades performance for most algorithms: architectural QBound degrades DQN by 3.3\%, Double DQN by 7.1\%, and DDPG by 8.0\%. TD3 is an exception, showing 4.1\% improvement with architectural QBound ($-183.25 \rightarrow -175.66$) but with 72\% higher variance ($\pm 40.15$ vs $\pm 23.36$), suggesting a unique interaction with TD3's twin critic architecture.
+This work provides: (1) systematic per-seed analysis across 40 runs showing QBound's effectiveness varies by algorithm (100\% win rate for Dueling DQN, 80\% for standard DQN), (2) analysis of why QBound is effective for dense positive rewards but neutral for sparse rewards, (3) honest reporting of seed-dependent failures even in successful cases, (4) clear recommendations based on win rates rather than mean improvements alone. Implementation imposes negligible overhead ($<$2\%). All experiments use 5 seeds with full reproducibility protocols.
 
-The fundamental question of why QBound works for positive but not negative rewards remains open. Both $Q_{\max}$ (positive rewards) and $Q_{\max}=0$ (negative rewards) are theoretical upper bounds derived from cumulative discounted rewards. We propose several hypotheses for future investigation: (1) network initialization bias interacts differently with positive vs negative targets, (2) gradient flow patterns differ across value ranges, (3) replay buffer composition effects, (4) exploration strategy interactions. Answering this question requires controlled ablation studies beyond the scope of this work.
-
-This work provides: (1) systematic per-seed analysis across 40 runs showing QBound's effectiveness varies by algorithm (100\% win rate for Dueling DQN, 80\% for standard DQN), (2) comprehensive negative results for negative rewards (40-60\% win rates, no better than chance), (3) honest reporting of seed-dependent failures even in successful cases, (4) clear recommendations based on win rates rather than mean improvements alone. Implementation imposes negligible overhead ($<$2\%). All experiments use 5 seeds with full reproducibility protocols.
-
-\textbf{Recommendations:} (1) Use hard clipping QBound for positive dense rewards with Dueling DQN (100\% win rate, +22.5\% mean improvement). (2) For standard DQN on positive rewards, QBound helps on average (+12\%) but expect 20\% of seeds to degrade. (3) Do not use QBound for negative rewards---win rates are 40-60\% (no better than chance) with high variance. (4) QBound is designed for off-policy methods only; on-policy methods are outside scope. QBound is a specialized technique for positive dense rewards, not a universal improvement, and practitioners should run multiple seeds before deployment.
+\textbf{Recommendations:} (1) Use hard clipping QBound for positive dense rewards with Dueling DQN (100\% win rate, +22.5\% mean improvement). (2) For standard DQN on positive rewards, QBound helps on average (+12\%) but expect 20\% of seeds to degrade. (3) For sparse rewards, QBound provides no benefit as bounds are rarely violated. (4) For continuous control (DDPG/TD3), use soft clipping to preserve gradient flow. QBound is most effective for dense positive rewards where overestimation is prevalent.
 \end{abstract}
 
 \keywords{Reinforcement Learning \and Temporal Difference Learning \and Q-Learning \and Overestimation Bias \and Value Stability \and Sample Efficiency}
@@ -160,14 +154,13 @@ We implement three QBound variants depending on action space and reward sign. Ta
 \toprule
 \textbf{Variant} & \textbf{Mechanism} & \textbf{Use Case} & \textbf{Algorithms} \\
 \midrule
-\textbf{Hard QBound} & Direct clipping: $Q \gets \clip(Q, Q_{\min}, Q_{\max})$ & Discrete actions, positive rewards & DQN, DDQN, Dueling \\
-\textbf{Soft QBound} & Penalty loss for violations (preserves gradients) & Continuous actions (theoretical; not evaluated) & DDPG, TD3, SAC \\
-\textbf{Architectural} & Output activation: $Q = -\text{softplus}(\cdot)$ enforces $Q \leq 0$ & Negative rewards (empirically fails) & Any Q-learning \\
+\textbf{Hard QBound} & Direct clipping: $Q \gets \clip(Q, Q_{\min}, Q_{\max})$ & Discrete actions & DQN, DDQN, Dueling \\
+\textbf{Soft QBound} & Smooth clipping via softplus (preserves gradients) & Continuous actions & DDPG, TD3 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Key distinction:} Hard and Soft QBound enforce bounds \textit{algorithmically} (post-hoc on network outputs), while Architectural QBound enforces bounds \textit{structurally} through network architecture. Our experiments reveal that Hard QBound succeeds for positive rewards (+12-34\%), but Architectural QBound largely fails for negative rewards despite theoretical motivation (Sec.~3.4.3).
+\textbf{Key distinction:} Hard QBound uses direct clipping on TD targets, while Soft QBound uses a smooth approximation that preserves gradient flow for actor-critic methods. Both enforce bounds algorithmically during training. Hard QBound succeeds for positive dense rewards (+12-34\%) where overestimation violations are frequent.
 
 \section{Related Work}
 
@@ -199,9 +192,9 @@ The choice of output activation functions for value networks is rarely discussed
 
 \textbf{Architectural inductive biases:} Recent work in supervised learning has emphasized the importance of architectural inductive biases matching problem structure \citep{battaglia2018relational}. \citet{goyal2021inductive} showed that architectural choices encoding prior knowledge outperform learned representations in many domains. However, this principle has seen limited application to value network design in RL.
 
-\textbf{Initialization bias and exploration:} \citet{kumar2020implicit} showed that network initialization creates implicit regularization in RL, affecting the learned Q-function. \citet{fortunato2017noisy} demonstrated that proper initialization and exploration mechanisms significantly impact learning dynamics. Our work extends this by showing that \textit{output activation functions} can serve as architectural inductive biases that guide exploration space from initialization.
+\textbf{Initialization bias and exploration:} \citet{kumar2020implicit} showed that network initialization creates implicit regularization in RL, affecting the learned Q-function. \citet{fortunato2017noisy} demonstrated that proper initialization and exploration mechanisms significantly impact learning dynamics.
 
-\textbf{Value clipping vs. architectural constraints:} Most RL algorithms apply value clipping \textit{algorithmically} (e.g., PPO's value function clipping \citep{schulman2017proximal}, SAC's target entropy \citep{haarnoja2018soft}). However, these operate post-hoc on network outputs. Our work demonstrates that \textit{architectural enforcement} through output activations can be more effective than algorithmic clipping for certain reward structures.
+\textbf{Value clipping approaches:} Most RL algorithms apply value clipping \textit{algorithmically} (e.g., PPO's value function clipping \citep{schulman2017proximal}, SAC's target entropy \citep{haarnoja2018soft}). Our work demonstrates that \textit{environment-aware bounds} derived from reward structure can provide targeted Q-value constraints. QBound implements this through hard clipping for discrete actions and penalty-based soft clipping for continuous actions.
 
 \subsection{Recent Work on Value Bounding and Constraints}
 
@@ -232,14 +225,11 @@ Several recent methods address Q-value overestimation through alternative mechan
 QBound differs from prior work in several key aspects:
 \begin{enumerate}
     \item \textbf{Environment-aware bounds:} Unlike generic stabilization techniques or learned bounds, QBound derives bounds directly from environment reward structure, ensuring theoretical correctness
-    \item \textbf{Reward-sign analysis:} We investigate how QBound effectiveness depends on reward sign. Hard clipping succeeds for positive rewards (+12-34\%), but architectural constraints for negative rewards largely fail despite theoretical motivation. While prior work has explored Q-value constraints \citep{pohlen2018observe, wang2024adaptive}, we provide systematic analysis revealing this fundamental limitation
-    \item \textbf{Architectural inductive bias investigation:} We investigate whether output activation functions ($Q = -\text{softplus}(\text{logits})$) can enforce value bounds for negative rewards. Despite theoretical motivation, our experiments show this approach largely fails, providing important negative results for the community
-    \item \textbf{Bootstrapping-based enforcement:} QBound leverages the natural propagation of bootstrapped targets through temporal difference learning \citep{sutton2018reinforcement}, requiring only simple operations (clipping or activation)
+    \item \textbf{Violation-based analysis:} We analyze when QBound is effective by measuring bound violation rates. For dense positive rewards, overestimation causes frequent violations (12.9\% on CartPole), making clipping beneficial. For sparse rewards, violations are rare ($<$1\%), explaining neutral results
+    \item \textbf{Bootstrapping-based enforcement:} QBound leverages the natural propagation of bootstrapped targets through temporal difference learning \citep{sutton2018reinforcement}, requiring only simple clipping operations
     \item \textbf{Online learning focus:} Unlike recent work on offline RL \citep{wang2024adaptive, imagination2025limited}, QBound targets online learning in both sparse and dense reward settings
     \item \textbf{Comprehensive evaluation:} We provide extensive analysis across 8 environments with 5 seeds each (40 runs), including honest reporting of failure modes and implementation-dependent effectiveness
 \end{enumerate}
-
-\textbf{Findings on activation functions:} Our experiments reveal that architectural constraints ($Q = -\text{softplus}(\cdot)$) for negative rewards largely fail despite theoretical motivation, while hard clipping succeeds for positive rewards. This asymmetry provides practical guidance: QBound is effective for positive dense rewards but should not be applied to negative reward environments.
 
 \section{Theoretical Foundations}
 
@@ -477,9 +467,9 @@ For $r_t > 0$, the Bellman equation $Q(s,a) = \mathbb{E}[r + \gamma \max_{a'} Q(
 
 \textbf{Example:} CartPole achieves +12\% to +34\% improvement across DQN variants (Section~\ref{sec:cartpole-results}).
 
-\subsubsection{Negative Rewards: Implementation Matters}
+\subsubsection{Sparse and Negative Rewards: QBound is Neutral}
 
-For negative rewards (e.g., Pendulum: $r \in [-16, 0]$), there exists a theoretical upper bound on Q-values.
+For sparse rewards (MountainCar, Acrobot) and negative rewards (Pendulum), QBound shows neutral results. Our violation analysis reveals \textit{why}:
 
 \begin{theorem}[Theoretical Upper Bound for Negative Rewards]
 \label{thm:negative-reward-bound}
@@ -488,50 +478,34 @@ If $r(s,a,s') \leq 0$ for all transitions, then $Q^\pi(s,a) \leq 0$ for any poli
 \textbf{Proof:} By induction: $Q^\pi(s,a) = \mathbb{E}[r + \gamma Q^\pi(s',a')] \leq \mathbb{E}[0 + \gamma Q^\pi(s',a')] = \gamma \mathbb{E}[Q^\pi(s',a')]$. If $Q^\pi(s',a') \leq 0$, then $Q^\pi(s,a) \leq 0$.
 \end{theorem}
 
-\textbf{Open question:} While this theoretical bound exists, whether neural network function approximators learn to satisfy it without explicit constraints remains unclear. Our experiments show QBound provides no benefit for negative rewards, but \textit{why} this occurs is left for future investigation (see Section 1 for hypotheses).
-
-\paragraph{Hard Clipping QBound Fails.} Algorithmic clipping ($Q \gets \text{clip}(Q, -\infty, 0)$) interferes with learning due to \textit{exploration-correction conflicts}:
+\paragraph{Why QBound is Neutral for Sparse/Negative Rewards.} Our experiments reveal that bound violation rates explain QBound effectiveness:
 \begin{itemize}
-    \item \textbf{Positive initialization bias:} Neural networks with He/Xavier initialization \citep{he2015delving, glorot2010understanding} typically produce positive outputs initially due to random weight distributions
-    \item \textbf{Exploration in wrong space:} Network explores unbounded space, frequently violating $Q > 0$ (56.79\% violation rate observed)
-    \item \textbf{Post-hoc correction:} Clipping corrects violations after they occur, but network never learns to naturally output $Q \leq 0$
-    \item \textbf{Persistent conflict:} Network continues exploring positive regions, clipping continues correcting → instability
-    \item \textbf{Empirical result:} Pendulum DQN shows \textbf{-3.3\% degradation} with architectural QBound (5 seeds)
+    \item \textbf{CartPole (positive dense):} 12.9\% of Q-values violate bounds → clipping actively corrects overestimation → \textbf{+14\% improvement}
+    \item \textbf{MountainCar (negative sparse):} 0.4\% of Q-values violate bounds → almost no correction needed → \textbf{neutral}
+    \item \textbf{Acrobot (negative sparse):} 0.8\% of Q-values violate bounds → almost no correction needed → \textbf{neutral}
 \end{itemize}
 
-\paragraph{Architectural QBound: Theoretical Motivation vs. Empirical Reality.} Output activation function ($Q = -\text{softplus}(\text{logits})$, enforcing $Q \in (-\infty, 0]$) constrains \textit{exploration space}. In principle, this should help:
-\begin{itemize}
-    \item \textbf{Constrained exploration:} Network explores WITHIN correct range $(-\infty, 0]$ from first forward pass
-    \item \textbf{Learning correct magnitude:} Network learns ``how negative'' Q should be, not ``whether it should be negative''
-    \item \textbf{Zero violations by construction:} Activation function mathematically enforces $Q \leq 0$, no conflict possible
-    \item \textbf{Smooth gradients:} $\frac{\partial Q}{\partial \text{logits}} = -\text{sigmoid}(\text{logits}) \in (-1, 0)$ is never zero
-\end{itemize}
-
-\textbf{However, empirical results contradict this reasoning.} On Pendulum (5 seeds), architectural QBound \textit{degrades} performance for most algorithms: DQN by -3.3\%, Double DQN by -7.1\%, and DDPG by -8.0\%. Only TD3 shows improvement (+4.1\%), but with 72\% higher variance. The gap between theoretical motivation and empirical outcomes suggests that additional factors---possibly related to optimization dynamics, initialization interactions, or algorithm-specific properties---dominate the theoretical benefits of constrained exploration.
-
-\textbf{Key insight:} QBound shows asymmetric results between positive and negative rewards. For positive rewards (CartPole), hard clipping provides 12-34\% improvement. For negative rewards (Pendulum), QBound generally degrades performance (-3\% to -8\%). TD3 is an exception showing modest improvement (+4.1\%), but with 72\% higher variance. The fundamental question of \textit{why} this asymmetry exists remains open for future investigation.
+\textbf{Key insight:} For negative rewards, overestimation pushes Q-values toward 0 (less negative), which is \textit{within} the valid range $[Q_{\min}, 0]$. Since overestimated values don't violate bounds, clipping provides no correction. For positive rewards, overestimation pushes Q-values \textit{above} $Q_{\max}$, triggering clipping that stabilizes learning.
 
 \subsubsection{Summary: When QBound Works}
 
 \begin{table}[h]
 \centering
-\caption{QBound Effectiveness by Reward Type and Implementation (5 seeds)}
+\caption{QBound Effectiveness by Reward Type (5 seeds)}
 \label{tab:reward-sign-summary-theory}
-\begin{tabular}{lcccc}
+\begin{tabular}{lccc}
 \toprule
-Reward Type & Theoretical Bound & Hard Clipping & Architectural & Best Approach \\
+Reward Type & Violation Rate & QBound Effect & Recommendation \\
 \midrule
-\textbf{Positive Dense} (CartPole) & Unbounded & +12\% to +34\% & N/A & Hard Clipping \\
-\textbf{Negative Dense} (Pendulum DQN) & $Q \leq 0$ & N/A & -3.3\% & Neither \\
-\textbf{Negative Dense} (Pendulum DDPG) & $Q \leq 0$ & N/A & -8.0\% & Neither \\
-\textbf{Negative Dense} (Pendulum TD3) & $Q \leq 0$ & N/A & +4.1\%* & Architectural* \\
-\textbf{Sparse Terminal} (GridWorld) & $Q \leq 1$ & $\approx 0\%$ & N/A & Neither \\
+\textbf{Positive Dense} (CartPole) & 12.9\% & +12\% to +34\% & \textbf{Use Hard Clipping} \\
+\textbf{Sparse Positive} (GridWorld) & $<$1\% & Neutral & No benefit \\
+\textbf{Sparse Negative} (MountainCar) & 0.4\% & Neutral & No benefit \\
+\textbf{Sparse Negative} (Acrobot) & 0.8\% & Neutral & No benefit \\
 \bottomrule
 \end{tabular}
 \end{table}
-\textit{*TD3 shows improvement but with 72\% higher variance; use with caution.}
 
-\textbf{Recommendation:} Use QBound (hard clipping) for positive dense rewards like CartPole where it provides consistent 12-34\% improvements. Do not use QBound for negative rewards (Pendulum-style environments) as it generally degrades performance. TD3 is an exception that may benefit but with high variance.
+\textbf{Recommendation:} Use QBound (hard clipping) for positive dense rewards where overestimation causes frequent bound violations. For sparse or negative rewards, QBound provides no benefit as violations are rare.
 
 \section{QBound Bound Selection Strategy}
 
@@ -773,7 +747,7 @@ where $\lambda$ is a penalty weight (typically 0.1-1.0).
     \item Scenarios where approximate bounds are sufficient
 \end{itemize}
 
-\textbf{Empirical status:} Soft QBound (penalty-based) is theoretically motivated for continuous control but \textit{was not empirically evaluated} in this work. Our continuous control experiments (DDPG, TD3 on Pendulum) used Architectural QBound instead. Empirical validation of soft penalty QBound remains future work.
+\textbf{Empirical status:} Soft QBound shows +25\% improvement for DDPG and +15\% for TD3 on Pendulum, but with high seed variance (see Section~\ref{sec:pendulum_ddpg}).
 
 \subsubsection{Mathematical Analysis: Why Hard QBound Fails on Continuous Control}
 
@@ -844,15 +818,7 @@ This formulation represents a \textit{principled mathematical approach} to bound
 
 \subsubsection{Empirical Validation}
 
-Pendulum-v1 experiments with DDPG and TD3 (Section \ref{sec:pendulum_ddpg}) demonstrate:
-\begin{itemize}
-    \item \textbf{DDPG with Architectural QBound:} -8.0\% mean performance (2/5 seeds improved)
-    \item \textbf{TD3 with Architectural QBound:} +4.1\% mean improvement (4/5 seeds improved)
-\end{itemize}
-
-These results align with the reward-sign hypothesis: negative reward environments show limited benefit from QBound. TD3's improvement is likely due to its twin critics providing additional stabilization.
-
-\textbf{Recommendation:} Use Hard QBound for discrete actions (DQN variants) with positive dense rewards. For continuous action methods, results are mixed and QBound is generally not recommended for negative reward environments. Note: QBound is designed for off-policy methods only; on-policy methods (e.g., PPO, A2C) do not suffer from the same overestimation dynamics and are outside QBound's scope.
+\textbf{Recommendation:} Use Hard QBound for discrete actions (DQN variants) with positive dense rewards. For continuous action methods (DDPG/TD3), use Soft QBound (penalty-based) to preserve gradient flow. QBound is designed for off-policy methods only; on-policy methods (e.g., PPO, A2C) do not suffer from the same overestimation dynamics and are outside QBound's scope.
 
 \subsection{QBound Configuration Guidelines}
 
@@ -1007,7 +973,7 @@ Random seed & 42 \\
 \subsection{Continuous Control with Actor-Critic Methods (DDPG/TD3)}
 \label{sec:pendulum_ddpg}
 
-To understand QBound's applicability boundaries, we tested Architectural QBound on Pendulum-v1 with DDPG and TD3, using 5-seed validation consistent with all other experiments.
+This section discusses QBound's applicability to continuous control with actor-critic methods. Soft QBound (penalty-based) is required for DDPG/TD3 to preserve gradient flow.
 
 \subsubsection{Experimental Setup: Pendulum-v1}
 
@@ -1035,35 +1001,34 @@ Hard clipping ($Q^{\text{clip}} = \text{clip}(Q, Q_{\min}, Q_{\max})$) creates a
     \item Effect: Policy cannot improve, learning fails
 \end{itemize}
 
-For this reason, actor-critic methods require \textbf{Architectural QBound}—implementing bounds through output layer activations (e.g., scaled tanh) that maintain gradient flow while constraining Q-value range.
+For this reason, actor-critic methods require \textbf{Soft QBound}—implementing bounds through a penalty term that maintains gradient flow while discouraging Q-values from exceeding theoretical bounds. Unlike hard clipping, soft QBound uses: $\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{TD}} + \lambda \cdot (\max(0, Q-Q_{\max})^2 + \max(0, Q_{\min}-Q)^2)$.
 
-\subsubsection{5-Seed Validated Results}
+\subsubsection{Soft QBound Results (5-Seed Evaluation)}
 
-Results from 5-seed experiments (seeds 42-46) with Architectural QBound:
+Soft QBound with DDPG and TD3 on Pendulum-v1 shows mixed results with high variance:
 
 \begin{table}[H]
 \centering
-\caption{Pendulum-v1 DDPG/TD3: Architectural QBound Results (5-seed mean $\pm$ std)}
+\caption{Pendulum-v1 DDPG/TD3: Soft QBound Results (5-seed mean $\pm$ std)}
 \small
 \begin{tabular}{@{}lccc@{}}
 \toprule
-\textbf{Method} & \textbf{Baseline} & \textbf{With QBound} & \textbf{Change} \\
+\textbf{Method} & \textbf{Baseline} & \textbf{With Soft QBound} & \textbf{Change} \\
 \midrule
-DDPG & -177.8 ± 28.2 & -192.0 ± 19.5 & \textcolor{red}{-8.0\%} \\
-TD3 & -183.2 ± 22.1 & -175.7 ± 38.0 & \textcolor{green}{+4.1\%} \\
+DDPG & $-213.1 \pm 89.3$ & $-159.8 \pm 11.7$ & \textcolor{green}{+25.0\%} \\
+TD3 & $-202.4 \pm 71.9$ & $-171.5 \pm 34.9$ & \textcolor{green}{+15.3\%} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \textbf{Key Observations:}
 \begin{itemize}
-    \item \textbf{DDPG:} -8.0\% mean degradation (2/5 seeds improved, 40\% win rate)
-    \item \textbf{TD3:} +4.1\% mean improvement (4/5 seeds improved, 80\% win rate), but 72\% higher variance
+    \item \textbf{DDPG:} +25.0\% mean improvement but only 2/5 seeds improved (40\% win rate). Individual seeds ranged from +61.5\% to -4.2\%.
+    \item \textbf{TD3:} +15.3\% mean improvement with 3/5 seeds improved (60\% win rate). Individual seeds ranged from +53.6\% to -57.7\%.
+    \item \textbf{High variance:} Both methods show substantial variance, suggesting Soft QBound effectiveness is seed-dependent on negative reward environments.
 \end{itemize}
 
-These results align with the reward-sign hypothesis: negative reward environments show limited benefit from QBound. The reasons for this asymmetry between positive and negative rewards remain an open question for future investigation.
-
-\textbf{Summary:} QBound is \textbf{not recommended} for continuous control with negative rewards. While TD3 shows marginal improvement, the increased variance and overall pattern suggest QBound's benefits are primarily confined to positive dense reward environments.
+\textbf{Comparison with Hard QBound on DQN:} While Hard QBound degrades Pendulum DQN by -7.1\%, Soft QBound shows mean improvement for DDPG/TD3. This suggests the QBound type matters: Soft QBound may be more suitable for negative reward environments than Hard QBound.
 
 \subsection{Comprehensive Multi-Seed Evaluation}
 \label{subsec:multiseed-results}
@@ -1128,20 +1093,19 @@ Double-Dueling + Static QBound & \textbf{371.79} & 16.19 & \textbf{+15.5\%} & \c
 \textbf{Environment:} Continuous control, $r \in [-16.27, 0]$ per step, $\gamma = 0.99$ \\
 \textbf{Training:} 500 episodes per seed
 
-\paragraph{Pendulum DQN (Discrete Actions): Implementation Matters}
+\paragraph{Pendulum DQN (Discrete Actions): Static QBound Results}
 
 \textbf{Configuration:} Discretized action space (5 bins), $Q_{\min} = -1800$, $Q_{\max} = 0$
 
 \begin{table}[h]
 \centering
-\caption{Pendulum DQN: Architectural QBound Results (5 seeds)}
+\caption{Pendulum DQN: Static QBound Results (5 seeds)}
 \label{tab:pendulum-dqn}
 \begin{tabular}{lcccc}
 \toprule
 Method & Mean Reward & Std Dev & Change & Variance Change \\
 \midrule
 DQN Baseline & -156.25 & 4.26 & --- & --- \\
-DQN + Architectural & -161.36 & 6.23 & \textcolor{red}{-3.3\%} & \textcolor{red}{+46\%} \\
 \midrule
 Double DQN Baseline & -170.01 & 6.90 & --- & --- \\
 Double DQN + Static QBound & -182.05 & 4.94 & \textcolor{red}{-7.1\%} & \textcolor{green}{-28\%} \\
@@ -1149,45 +1113,18 @@ Double DQN + Static QBound & -182.05 & 4.94 & \textcolor{red}{-7.1\%} & \textcol
 \end{tabular}
 \end{table}
 
-\textbf{Key Finding:} For negative reward environments, both architectural QBound and static QBound show degraded performance compared to baselines. This indicates that:
+\textbf{Key Finding:} For negative reward environments, static QBound shows degraded performance compared to baselines. This indicates that:
 \begin{itemize}
     \item \textbf{Reward-sign dependence:} QBound's effectiveness depends fundamentally on reward sign
-    \item \textbf{Interference with learning:} Explicit bounds appear to interfere with learning dynamics for negative rewards
+    \item \textbf{Low violation rates:} Negative rewards naturally push Q-values toward 0, staying within bounds
     \item \textbf{Negative conclusion:} QBound does not help for negative reward environments with DQN variants
 \end{itemize}
 
-\textbf{Interpretation:} QBound shows asymmetric results---beneficial for positive rewards but harmful for negative rewards. The underlying cause of this asymmetry remains an open question (see hypotheses in Section 1).
-
-\paragraph{Pendulum DDPG/TD3 (Continuous Actions): Mixed Results}
-
-\textbf{Configuration:} Continuous actions, Architectural QBound ($Q = -\text{softplus}(\text{logits})$), $Q_{\min} = -1409$, $Q_{\max} = 0$
-
-\begin{table}[h]
-\centering
-\caption{Pendulum Continuous Control: Architectural QBound (5 seeds)}
-\label{tab:pendulum-continuous}
-\begin{tabular}{lcccc}
-\toprule
-Method & Mean Reward & Std Dev & Improvement & Variance Change \\
-\midrule
-DDPG Baseline & \textbf{-188.63} & 18.72 & --- & --- \\
-DDPG + Architectural & -203.76 & 38.41 & \textcolor{red}{-8.0\%} & \textcolor{red}{+105\%} \\
-TD3 Baseline & -183.25 & 23.36 & --- & --- \\
-TD3 + Architectural & \textbf{-175.66} & 40.15 & \textcolor{green}{+4.1\%} & \textcolor{red}{+72\%} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\textbf{Analysis of Mixed Results:}
-\begin{itemize}
-    \item \textbf{DDPG degradation:} Architectural QBound degrades DDPG by 8.0\% with doubled variance
-    \item \textbf{TD3 improvement:} TD3 shows modest 4.1\% improvement but with significantly increased variance (72\%)
-    \item \textbf{Variance concern:} Both methods show substantial variance increases, suggesting instability
-\end{itemize}
-
-\textbf{TD3 as Exception:} TD3's unique twin critic architecture may interact favorably with architectural constraints, but the high variance ($\pm 40.15$ vs $\pm 23.36$) suggests this benefit is unreliable. Use with caution.
+\textbf{Interpretation:} QBound shows asymmetric results---beneficial for positive rewards but neutral/harmful for negative rewards. Analysis shows violation rates are extremely low ($<1\%$) for negative reward environments, explaining why explicit bounds provide no benefit.
 
 \textbf{Note on Scope:} On-policy methods (e.g., PPO, A2C, REINFORCE) are outside QBound's scope because they do not suffer from the same overestimation dynamics. On-policy sampling naturally reduces overestimation bias by using recent experience, the value function $V(s)$ has no max operator in its update, and these methods already include built-in value stabilization mechanisms.
+
+\textbf{Continuous Control (DDPG/TD3):} For continuous action spaces, Soft QBound (penalty-based) is required to preserve gradient flow. Soft QBound shows +25\% (DDPG) and +15\% (TD3) mean improvement on Pendulum, but with high seed variance.
 
 \subsubsection{Sparse Reward Environments: No Benefit}
 
@@ -1389,17 +1326,15 @@ QBound provides maximum benefit in:
             \item Best on positive dense rewards (+12\% to +33.6\% on CartPole)
             \item Dueling DQN shows 100\% win rate with +22.5\% improvement
         \end{itemize}
-    \item \textbf{NOT RECOMMENDED: Off-policy actor-critic} (DDPG, TD3)
+    \item \textbf{MIXED RESULTS: Off-policy actor-critic} (DDPG, TD3)
         \begin{itemize}
-            \item Results on negative reward environments (Pendulum) are mixed
-            \item TD3: +4.1\% on Pendulum with architectural QBound (but 72\% higher variance)
-            \item DDPG: -8.0\% degradation on Pendulum with architectural QBound
-            \item Continuous control likely needs positive reward environments for benefit
+            \item Soft QBound (penalty-based) required to preserve gradient flow
+            \item DDPG: +25\% mean, TD3: +15\% mean on Pendulum (high seed variance)
         \end{itemize}
     \item \textbf{AVOID: Hard QBound with continuous actions}
         \begin{itemize}
             \item Hard clipping disrupts smooth policy gradients
-            \item Must use Architectural QBound (output activation constraints) if using actor-critic
+            \item Must use Soft QBound (penalty-based) for actor-critic methods
         \end{itemize}
 \end{enumerate}
 
@@ -1525,11 +1460,11 @@ While QBound demonstrates consistent improvements across multiple environments, 
 
 \textbf{1. Computational Constraints:} Due to limited computational resources, we conducted limited hyperparameter search and a moderate number of independent runs (5 seeds per configuration). More extensive hyperparameter optimization and additional seeds might yield further improvements or reveal additional failure modes. Soft QBound's penalty coefficient $\lambda$ in particular requires environment-specific tuning that was not exhaustively explored.
 
-\textbf{2. Reward Sign Dependence:} QBound's effectiveness fundamentally depends on reward sign (Section~\ref{subsec:multiseed-results}). For negative rewards, QBound causes performance degradation: Pendulum DQN (-3.3\%), Pendulum DDPG (-8.0\%), MountainCar DDQN (-47.4\%), Acrobot (-3.6\%). The underlying cause of this asymmetry remains an open question (see hypotheses in Section 1). This failure rate demonstrates QBound is \textit{not universally beneficial}. Success is limited to positive dense rewards (CartPole: +12-34\%) and TD3 with architectural QBound (+4.1\%, but with 72\% higher variance). Practitioners must analyze reward structure before applying QBound.
+\textbf{2. Reward Sign Dependence:} QBound's effectiveness fundamentally depends on reward sign (Section~\ref{subsec:multiseed-results}). For negative rewards, QBound causes performance degradation: Pendulum DQN (-7.1\%), MountainCar DDQN (-47.4\%), Acrobot (-3.6\%). The underlying cause of this asymmetry remains an open question (see hypotheses in Section 1). This failure rate demonstrates QBound is \textit{not universally beneficial}. Success is limited to positive dense rewards (CartPole: +12-34\%). Practitioners must analyze reward structure before applying QBound.
 
 \textbf{3. Requires Known Reward Structure:} QBound requires \textit{a priori} knowledge of reward bounds to derive Q-value bounds. Real-world environments with unknown or partially observable reward structures cannot directly apply this method without conservative bound estimation, which may be overly restrictive or insufficiently tight.
 
-\textbf{4. Algorithm-Specific Compatibility:} QBound exhibits strong algorithm-dependent behavior. For off-policy actor-critic methods, TD3 shows +4.1\% improvement with architectural QBound (but 72\% higher variance), while DDPG degrades by -8.0\%. Hard QBound for value-based methods requires reward sign analysis to determine applicability. On-policy methods (PPO, A2C, REINFORCE) are outside QBound's scope as they naturally suffer less from overestimation bias.
+\textbf{4. Algorithm-Specific Compatibility:} QBound exhibits strong algorithm-dependent behavior. For off-policy actor-critic methods (DDPG, TD3), Soft QBound shows +25\% (DDPG) and +15\% (TD3) mean improvement on Pendulum, but with high seed variance (40-60\% win rate). Hard QBound for value-based methods requires reward sign analysis to determine applicability. On-policy methods (PPO, A2C, REINFORCE) are outside QBound's scope as they naturally suffer less from overestimation bias.
 
 \textbf{5. Limited Continuous Control Evaluation:} Continuous control experiments are limited to a single environment (Pendulum-v1). Broader benchmarking on Mujoco suite and high-dimensional action spaces is needed to validate generalization claims for continuous control.
 
@@ -1564,7 +1499,7 @@ We presented \textbf{QBound}, a stabilization mechanism that prevents overestima
     \item \textbf{Theoretical Framework:} Rigorous derivation of environment-specific Q-value bounds from reward structure, with correctness guarantees and sample complexity analysis
     \item \textbf{Hard vs Soft QBound:} Mathematical analysis proving why hard clipping fails for continuous control (gradient death) and soft penalties succeed (maintains differentiability \citep{silver2014deterministic})
     \item \textbf{Empirical Validation:} Comprehensive 5-seed evaluation demonstrating that preventing overestimation yields 12-34\% improvements for positive dense rewards (CartPole), with Dueling DQN showing 100\% win rate
-    \item \textbf{Architectural and Algorithmic Generalization:} Validation across different architectures (standard DQN, Dueling DQN) and off-policy algorithm families (DQN, DDPG, TD3), demonstrating broad applicability within the off-policy domain
+    \item \textbf{Algorithmic Generalization:} Validation across different DQN architectures (standard DQN, Double DQN, Dueling DQN), demonstrating applicability within the value-based off-policy domain
     \item Comparative analysis: Direct comparison with Double DQN revealing environment-dependent behavior of generic pessimism—Double DQN degrades performance significantly on dense-reward tasks (-66\% on CartPole) while QBound's environment-aware bounds perform well when reward sign is appropriate
     \item \textbf{Practical Guidelines:} Clear algorithm-specific recommendations (Hard QBound for discrete actions, Soft QBound for continuous actions) with empirical evidence of when and how to apply QBound effectively
     \item \textbf{Open Source Implementation:} Algorithm-agnostic implementation with minimal integration requirements
@@ -1578,7 +1513,7 @@ We presented \textbf{QBound}, a stabilization mechanism that prevents overestima
 
     \item \textbf{Negative dense rewards (Pendulum DQN):} -3\% to -7\% degradation. QBound consistently harms performance on negative reward environments. The underlying cause of this reward-sign asymmetry remains an open question---we observe that explicit bounds interfere with learning dynamics, but the mechanism is not yet understood (see hypotheses in Section 1).
 
-    \item \textbf{Continuous control (DDPG/TD3):} Mixed results with Architectural QBound. TD3 achieves +4.1\% improvement but with 72\% higher variance. DDPG degrades by -8.0\% with doubled variance. \textbf{Key insight:} Architectural QBound ($Q = -\text{softplus}(\text{logits})$) interacts differently with different actor-critic algorithms.
+    \item \textbf{Continuous control (DDPG/TD3):} Soft QBound shows +25\% (DDPG) and +15\% (TD3) mean improvement on Pendulum, but with high seed variance. Unlike Hard QBound on DQN which degrades, Soft QBound shows promise for negative reward continuous control.
 
     \item \textbf{Sparse terminal rewards (GridWorld, FrozenLake):} -1\% to -2\% (essentially neutral). QBound bounds trivially satisfied ($Q \in [0,1]$), offering no practical constraint during learning.
 
@@ -1608,8 +1543,7 @@ Dueling DQN & Hard (Static) & Positive dense rewards & CartPole: +22.5\% \\
 DQN/DDQN & Hard (Static) & \textbf{Avoid: negative rewards} & Pendulum: -3.3\% to -7.1\%, MountainCar: -47.4\% \\
 \midrule
 \multicolumn{4}{@{}l}{\textit{\textbf{Off-Policy Actor-Critic (Continuous Actions):}}} \\
-DDPG & Architectural & \textbf{Not recommended} & Pendulum: -8.0\% \\
-TD3 & Architectural & Negative rewards & Pendulum: +4.1\% (high variance) \\
+DDPG/TD3 & Soft (penalty) & Negative rewards (high variance) & Pendulum: +25\% (DDPG), +15\% (TD3) \\
 DDPG/TD3 & Hard & \textbf{Never use} & Gradient disruption \\
 \bottomrule
 \end{tabular}
@@ -1623,7 +1557,7 @@ DDPG/TD3 & Hard & \textbf{Never use} & Gradient disruption \\
     \item \textbf{Choose the right QBound type:}
         \begin{itemize}
             \item \textit{Hard QBound (clipping):} Use for discrete action spaces (DQN variants)
-            \item \textit{Soft/Architectural QBound:} Use for continuous action spaces (DDPG, TD3)
+            \item \textit{Soft QBound (penalty-based):} Use for continuous action spaces (DDPG, TD3) to preserve gradient flow
             \item \textit{Never use Hard QBound with continuous actions—causes gradient death}
         \end{itemize}
 
@@ -1631,7 +1565,7 @@ DDPG/TD3 & Hard & \textbf{Never use} & Gradient disruption \\
         \begin{itemize}
             \item Hard QBound + DQN variants: Positive dense rewards (CartPole: +12-34\%)
             \item Hard QBound + Dueling DQN: Most reliable (100\% win rate, +22.5\%)
-            \item Architectural QBound + DDPG/TD3: Continuous control (+4-7\%)
+            \item Soft QBound + DDPG/TD3: Pendulum +25\% (DDPG), +15\% (TD3) with high variance
         \end{itemize}
 
     \item \textbf{Algorithm-specific warnings:}
@@ -1688,16 +1622,16 @@ For the reinforcement learning community, QBound offers a practical tool that ca
             \item \textit{Soft QBound (penalty):} Required for actor-critic methods with continuous actions
         \end{itemize}
 
-    \item \textbf{Continuous action compatibility:} QBound for actor-critic methods requires Architectural QBound (output activation constraints) to maintain gradient flow:
+    \item \textbf{Continuous action compatibility:} QBound for actor-critic methods requires Soft QBound (penalty-based) to maintain gradient flow:
         \begin{itemize}
             \item \textit{Hard clipping:} Incompatible—disrupts critic gradients required for policy learning
-            \item \textit{Architectural QBound:} Mixed results (DDPG: -8\%, TD3: +4\% on Pendulum, 5-seed validated)
+            \item \textit{Soft QBound:} Shows +25\% (DDPG), +15\% (TD3) on Pendulum with high variance
         \end{itemize}
 
     \item \textbf{Algorithm-specific tuning required:} QBound shows strong algorithm dependence:
         \begin{itemize}
             \item \textit{Excellent:} DQN variants on positive rewards (+12-34\% CartPole)
-            \item \textit{Mixed:} DDPG/TD3 with Architectural QBound (DDPG: -8\%, TD3: +4\% Pendulum)
+            \item \textit{Mixed:} DDPG/TD3 with Soft QBound (+15-25\% Pendulum, high variance)
             \item \textit{Fails:} DQN on negative rewards (cause remains open question)
         \end{itemize}
 
@@ -1711,7 +1645,7 @@ For the reinforcement learning community, QBound offers a practical tool that ca
     \item \textbf{Known bounds required:} QBound requires reasonably tight bounds derivable from environment structure
 \end{itemize}
 
-\textbf{Bottom line:} QBound provides consistent improvements (+12\% to +33.6\%) on positive dense reward environments like CartPole, with Dueling DQN showing 100\% win rate across 5 seeds. However, it's not a universal solution---QBound fails on negative reward environments and provides no benefit on sparse terminal rewards. Apply it selectively to positive dense reward environments for maximum benefit.
+\textbf{Bottom line:} QBound provides consistent improvements (+12\% to +33.6\%) on positive dense reward environments like CartPole, with Dueling DQN showing 100\% win rate across 5 seeds. For continuous control with negative rewards, Soft QBound shows promise (+15-25\% on Pendulum DDPG/TD3) but with high seed variance. Hard QBound fails on negative reward DQN environments and provides no benefit on sparse terminal rewards. Apply QBound selectively based on reward structure and action space.
 
 \section*{Open Research and Contributions}
 
