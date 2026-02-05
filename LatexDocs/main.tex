@@ -74,11 +74,11 @@ We present QBound, a stabilization mechanism for value-based reinforcement learn
 
 \textbf{Scope:} QBound targets \textit{off-policy} value-based methods (DQN, DDQN, Dueling DQN) and off-policy actor-critic methods (DDPG, TD3) that use experience replay. On-policy methods (e.g., PPO, A2C, REINFORCE) are outside QBound's scope because they do not suffer from the same overestimation dynamics.
 
-\textbf{Results:} For positive dense reward environments (e.g., CartPole: $r = +1$ per timestep), QBound achieves mean improvements of 12\% to 34\% across DQN variants, with CartPole Dueling showing 100\% win rate (5/5 seeds improve) and CartPole DQN showing 80\% win rate (4/5 seeds improve). For sparse reward environments (GridWorld, FrozenLake, MountainCar, Acrobot), QBound shows neutral results---the bounds are rarely violated during training, so clipping provides no benefit. For continuous control with negative rewards (Pendulum DDPG/TD3), soft clipping QBound preserves gradient flow while enforcing bounds.
+\textbf{Results:} (1) \textit{Positive dense rewards:} Recommended (+12\% to +33\%, 80-100\% win rate on CartPole). (2) \textit{Sparse rewards:} Neutral/No benefit (violations rare: 0-1.5\%). (3) \textit{Negative dense + DDPG/TD3:} Mixed (+15\% to +25\% mean, but only 40-60\% win rate). (4) \textit{Negative dense + DQN variants:} Degrading (-7.1\%, under investigation).
 
 This work provides: (1) systematic per-seed analysis across 40 runs showing QBound's effectiveness varies by algorithm (100\% win rate for Dueling DQN, 80\% for standard DQN), (2) analysis of why QBound is effective for dense positive rewards but neutral for sparse rewards, (3) honest reporting of seed-dependent failures even in successful cases, (4) clear recommendations based on win rates rather than mean improvements alone. Implementation imposes negligible overhead ($<$2\%). All experiments use 5 seeds with full reproducibility protocols.
 
-\textbf{Recommendations:} (1) Use hard clipping QBound for positive dense rewards with Dueling DQN (100\% win rate, +22.5\% mean improvement). (2) For standard DQN on positive rewards, QBound helps on average (+12\%) but expect 20\% of seeds to degrade. (3) For sparse rewards, QBound provides no benefit as bounds are rarely violated. (4) For continuous control (DDPG/TD3), use soft clipping to preserve gradient flow. QBound is most effective for dense positive rewards where overestimation is prevalent.
+\textbf{Recommendations:} (1) Use hard clipping QBound for positive dense rewards with Dueling DQN (100\% win rate, +22.5\% mean). (2) For sparse rewards, QBound provides no benefit as bounds are rarely violated. (3) For negative dense rewards with DDPG/TD3, soft clipping shows mixed results (40-60\% win rate). (4) Avoid hard clipping QBound for negative dense rewards with DQN variants (causes degradation).
 \end{abstract}
 
 \keywords{Reinforcement Learning \and Temporal Difference Learning \and Q-Learning \and Overestimation Bias \and Value Stability \and Sample Efficiency}
@@ -118,7 +118,13 @@ Prior stabilization work includes target networks \citep{mnih2015human}, clipped
 
 We propose QBound, a stabilization mechanism that prevents overestimation bias by exploiting known environment structure. QBound addresses the root cause of instability in bootstrapped value learning—unbounded overestimation—by deriving and enforcing environment-aware Q-value bounds. Unlike generic pessimism (e.g., Double-Q \citep{van2016deep}), QBound's bounds are environment-specific, providing stabilization without excessive conservatism.
 
-\textbf{Important scope limitation:} QBound is a \textit{specialized technique}, not a universal improvement. Our comprehensive evaluation reveals that QBound provides consistent benefits \textit{only} for positive dense reward environments (+12-34\% on CartPole). For negative reward environments, QBound causes degradation (-3\% to -8\%). For sparse terminal rewards, QBound provides no meaningful benefit. Practitioners should carefully assess reward structure before applying QBound.
+\textbf{Summary of Results:}
+\begin{itemize}
+    \item \textbf{Positive dense rewards:} Recommended (+12\% to +33\%, 80-100\% win rate)
+    \item \textbf{Sparse rewards:} Neutral/No benefit (violations rare: 0-1.5\%)
+    \item \textbf{Negative dense + DDPG/TD3:} Mixed (+15\% to +25\% mean, but only 40-60\% win rate)
+    \item \textbf{Negative dense + DQN variants:} Degrading (-7.1\%, under investigation)
+\end{itemize}
 
 \textbf{Core Mechanism:}
 \begin{itemize}
@@ -1424,7 +1430,13 @@ QBound preserves the convergence properties of underlying algorithms while impro
 \subsubsection{Current Limitations}
 
 \begin{enumerate}
-    \item \textbf{Positive dense rewards only (CRITICAL):} QBound shows consistent benefits only for positive dense reward environments (CartPole: +12\% to +34\%). For negative reward environments (Pendulum), QBound is ineffective or counterproductive (-3\% to -8\%). The underlying cause of this reward-sign asymmetry remains an open question. For sparse terminal rewards, Q-bounds are trivially satisfied.
+    \item \textbf{Reward-dependent effectiveness:} QBound shows varying effectiveness across reward structures:
+    \begin{itemize}
+        \item Positive dense rewards: Recommended (+12\% to +33\%, 80-100\% win rate)
+        \item Sparse rewards: Neutral/No benefit (violations rare: 0-1.5\%)
+        \item Negative dense + DDPG/TD3: Mixed (+15\% to +25\% mean, but only 40-60\% win rate)
+        \item Negative dense + DQN variants: Degrading (-7.1\%, under investigation)
+    \end{itemize}
 
     \item \textbf{Bound estimation:} Requires knowledge or estimation of environment reward structure
 

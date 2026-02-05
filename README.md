@@ -7,7 +7,11 @@
 
 A comprehensive implementation and evaluation of **QBound**, a stabilization mechanism that exploits environment structure to prevent overestimation bias in deep reinforcement learning by deriving and enforcing Q-value bounds from known reward structures.
 
-**Important:** QBound is a *specialized technique* effective only for **positive dense reward environments** (e.g., CartPole). It causes degradation on negative reward environments and provides no benefit on sparse terminal rewards.
+**Summary of Results:**
+- **Positive dense rewards**: Recommended (+12% to +33%, 80-100% win rate)
+- **Sparse rewards**: Neutral/No benefit (violations rare: 0-1.5%)
+- **Negative dense + DDPG/TD3**: Mixed (+15% to +25% mean, but only 40-60% win rate)
+- **Negative dense + DQN variants**: Degrading (-7.1%, under investigation)
 
 ## Research Paper
 
