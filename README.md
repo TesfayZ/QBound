@@ -43,6 +43,15 @@ All results below are from **5-seed experiments** (seeds 42-46) for statistical 
 | **Pendulum** | DDPG | Soft | +25.0% | 2/5 (40%) | High variance (seeds 42, 45 improved) |
 | **Pendulum** | TD3 | Soft | +15.3% | 3/5 (60%) | High variance (seeds 42, 43, 45 improved) |
 
+**Violation Rates (Soft QBound on Pendulum):**
+
+| Algorithm | Seed 42 | Seed 43 | Seed 44 | Seed 45 | Seed 46 | Mean |
+|-----------|---------|---------|---------|---------|---------|------|
+| DDPG | 42.5% | 27.7% | 4.1% | 24.0% | 50.4% | 29.7% |
+| TD3 | 8.5% | 3.8% | 0.5% | 2.8% | 1.9% | 3.5% |
+
+*Note: Unlike DQN on negative rewards (<1% violation rate), DDPG/TD3 show higher and more variable violation rates. Why this occurs is under investigation.*
+
 ### Sparse Terminal Rewards (No Benefit)
 
 | Environment | Algorithm | Change | Win Rate | Notes |

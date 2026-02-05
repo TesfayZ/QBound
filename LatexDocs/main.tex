@@ -1028,7 +1028,25 @@ TD3 & $-202.4 \pm 71.9$ & $-171.5 \pm 34.9$ & \textcolor{green}{+15.3\%} \\
     \item \textbf{High variance:} Both methods show substantial variance, suggesting Soft QBound effectiveness is seed-dependent on negative reward environments.
 \end{itemize}
 
-\textbf{Comparison with Hard QBound on DQN:} While Hard QBound degrades Pendulum DQN by -7.1\%, Soft QBound shows mean improvement for DDPG/TD3. This suggests the QBound type matters: Soft QBound may be more suitable for negative reward environments than Hard QBound.
+\textbf{Violation Rates (Soft QBound):}
+
+\begin{table}[H]
+\centering
+\caption{Pendulum DDPG/TD3: Violation Rates by Seed (\%)}
+\small
+\begin{tabular}{@{}lccccc|c@{}}
+\toprule
+\textbf{Method} & \textbf{Seed 42} & \textbf{Seed 43} & \textbf{Seed 44} & \textbf{Seed 45} & \textbf{Seed 46} & \textbf{Mean} \\
+\midrule
+DDPG & 42.5\% & 27.7\% & 4.1\% & 24.0\% & 50.4\% & 29.7\% \\
+TD3 & 8.5\% & 3.8\% & 0.5\% & 2.8\% & 1.9\% & 3.5\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Note:} Unlike DQN on negative rewards ($<$1\% violation rate), DDPG/TD3 show higher and more variable violation rates. Why violation rates differ across algorithms and seeds on negative reward environments is under investigation.
+
+\textbf{Comparison with Hard QBound on DQN:} While Hard QBound degrades Pendulum DQN by -7.1\%, Soft QBound shows mean improvement for DDPG/TD3. Why this difference occurs is under investigation.
 
 \subsection{Comprehensive Multi-Seed Evaluation}
 \label{subsec:multiseed-results}
