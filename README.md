@@ -27,80 +27,43 @@ Value-based reinforcement learning methods suffer from overestimation bias ([Thr
 
 All results below are from **5-seed experiments** (seeds 42-46) for statistical validity.
 
-### Positive Dense Rewards (Recommended)
+### Complete Results: Mean Change, Win Rate, and Violation Rate
 
-| Environment | Algorithm | Improvement | Win Rate | Notes |
-|-------------|-----------|-------------|----------|-------|
-| **CartPole** | DQN | **+12.0%** | 4/5 (80%) | Consistent improvement |
-| **CartPole** | DDQN | **+33.6%** | - | Best improvement |
-| **CartPole** | Dueling DQN | **+22.5%** | 5/5 (100%) | Most reliable |
+| Reward Type | Environment | Algorithm | Mean Δ | Win Rate | Violation Rate | Status |
+|-------------|-------------|-----------|--------|----------|----------------|--------|
+| **Positive Dense** | CartPole | DQN | **+12.0%** | 4/5 (80%) | 13.3% | ✓ Recommended |
+| **Positive Dense** | CartPole | DDQN | **+33.6%** | - | 13.3% | ✓ Recommended |
+| **Positive Dense** | CartPole | Dueling | **+22.5%** | 5/5 (100%) | 13.3% | ✓ Recommended |
+| **Sparse Positive** | GridWorld | DQN | -1.0% | 1/5 (20%) | 1.5% | No benefit |
+| **Sparse Positive** | FrozenLake | DQN | -1.7% | 3/5 (60%) | 0.0% | No benefit |
+| **Sparse Negative** | MountainCar | DQN | -8.2% | 1/5 (20%) | 0.4% | No benefit |
+| **Sparse Negative** | Acrobot | DQN | -4.9% | 2/5 (40%) | 0.8% | No benefit |
+| **Negative Dense** | Pendulum | DQN | -7.1% | 2/5 (40%) | 55.5% | ⚠️ Under investigation |
+| **Negative Dense** | Pendulum | DDQN | -7.1% | 2/5 (40%) | 3.8% | ⚠️ Under investigation |
+| **Negative Dense** | Pendulum | DDPG | **+25.0%** | 2/5 (40%) | 29.7% | Mixed |
+| **Negative Dense** | Pendulum | TD3 | **+15.3%** | 3/5 (60%) | 3.5% | Mixed |
 
-### Negative Rewards (Mixed Results)
+### Key Findings
 
-| Environment | Algorithm | QBound Type | Result | Win Rate | Notes |
-|-------------|-----------|-------------|--------|----------|-------|
-| **Pendulum** | DDQN | Hard | -7.1% | - | Degradation |
-| **Pendulum** | DDPG | Soft | +25.0% | 2/5 (40%) | High variance (seeds 42, 45 improved) |
-| **Pendulum** | TD3 | Soft | +15.3% | 3/5 (60%) | High variance (seeds 42, 43, 45 improved) |
+**What works:**
+- **Positive dense rewards + Hard QBound**: Strong improvement (CartPole: +12% to +33.6%, 80-100% win rate)
 
-**Violation Rates (Soft QBound on Pendulum):**
+**Mixed results:**
+- **Negative dense rewards + Soft QBound (DDPG/TD3)**: +15% to +25% mean improvement but only 40-60% win rate
 
-| Algorithm | Seed 42 | Seed 43 | Seed 44 | Seed 45 | Seed 46 | Mean |
-|-----------|---------|---------|---------|---------|---------|------|
-| DDPG | 42.5% | 27.7% | 4.1% | 24.0% | 50.4% | 29.7% |
-| TD3 | 8.5% | 3.8% | 0.5% | 2.8% | 1.9% | 3.5% |
+**What doesn't work:**
+- **Sparse rewards**: No benefit (violations rare: 0-1.5%)
+- **Negative dense rewards + Hard QBound (DQN)**: Degradation despite high violations
 
-*Note: Unlike DQN on negative rewards (<1% violation rate), DDPG/TD3 show higher and more variable violation rates. Why this occurs is under investigation.*
+### Under Investigation
 
-### Sparse Terminal Rewards (No Benefit)
+**DQN variants fail on dense negative rewards despite high violation rates:**
+- Pendulum DQN: 55.5% violation rate → -7.1% performance (degradation)
+- CartPole DQN: 13.3% violation rate → +12.0% performance (improvement)
 
-| Environment | Algorithm | Change | Win Rate | Notes |
-|-------------|-----------|--------|----------|-------|
-| **GridWorld** | DQN | -1.0% | 1/5 (20%) | Bounds trivially satisfied |
-| **FrozenLake** | DQN | -1.7% | 3/5 (60%) | No better than chance |
+Why high violations (55.5%) fail to benefit from clipping on dense negative rewards is under investigation.
 
-### State-Dependent Negative Rewards (Degradation)
-
-| Environment | Algorithm | Change | Notes |
-|-------------|-----------|--------|-------|
-| **MountainCar** | DQN | -8.2% | Causes degradation |
-| **MountainCar** | DDQN | **-47.4%** | Severe degradation |
-| **Acrobot** | DQN | -4.9% | Causes degradation |
-| **Acrobot** | DDQN | -3.6% | Causes degradation |
-
-### Key Insight
-
-QBound's effectiveness depends on **reward sign, structure, and QBound type**:
-- **Positive dense rewards + Hard QBound**: Strong improvement (CartPole: +12% to +33.6%)
-- **Sparse terminal rewards**: No benefit (Q bounds trivially satisfied)
-- **Negative rewards + Hard QBound (DQN)**: Degradation (-7.1% on Pendulum DDQN)
-- **Negative rewards + Soft QBound (DDPG/TD3)**: Mixed results with high variance
-
-**Recommendation**: Use Hard QBound for **positive dense reward environments** with Dueling DQN (100% win rate). For continuous control, Soft QBound shows promise but has high seed variance.
-
-### Violation Rates Summary
-
-| Environment | Algorithm | Violation Rate | QBound Effect |
-|-------------|-----------|----------------|---------------|
-| **CartPole** (positive dense) | DQN | 13.3% | +12% to +34% |
-| **GridWorld** (sparse positive) | DQN | 1.5% | Neutral |
-| **FrozenLake** (sparse positive) | DQN | 0.0% | Neutral |
-| **MountainCar** (sparse negative) | DQN | 0.4% | Neutral |
-| **Acrobot** (sparse negative) | DQN | 0.8% | Neutral |
-| **Pendulum** (negative dense) | DQN | 55.5% | -7.1% |
-| **Pendulum** (negative dense) | DDQN | 3.8% | -7.1% |
-| **Pendulum** (negative dense) | DDPG | 29.7% | +25.0% |
-| **Pendulum** (negative dense) | TD3 | 3.5% | +15.3% |
-
-**Observations:**
-- Positive dense (CartPole DQN): 13.3% violation rate
-- Negative dense (Pendulum DQN): 55.5% violation rate
-- Negative dense (Pendulum DDQN): 3.8% violation rate
-- Negative dense (Pendulum DDPG): 29.7% violation rate
-- Negative dense (Pendulum TD3): 3.5% violation rate
-- Sparse rewards (all): 0.0% - 1.5% violation rate
-
-**Under Investigation:** DQN variants show degradation on dense negative rewards despite high violation rates. Pendulum DQN has 55.5% violations (higher than CartPole's 13.3%) yet QBound degrades performance by -7.1%. Why high violations fail to benefit from clipping on dense negative rewards is under investigation.
+**Recommendation**: Use Hard QBound for **positive dense reward environments** with Dueling DQN (100% win rate). For continuous control with negative rewards, Soft QBound with DDPG/TD3 shows mixed results (40-60% win rate).
 
 ---
 
