@@ -106,15 +106,25 @@
   },
   "pendulum_ddpg": {
     "baseline": {
-      "final_mean": -188.63092900585247,
-      "final_std": 18.723936490809905,
+      "final_mean": -213.10,
+      "final_std": 89.26,
+      "n_seeds": 5
+    },
+    "static_soft_qbound": {
+      "final_mean": -159.79,
+      "final_std": 11.66,
       "n_seeds": 5
     }
   },
   "pendulum_td3": {
     "baseline": {
-      "final_mean": -183.24563204086675,
-      "final_std": 23.363816970415613,
+      "final_mean": -202.39,
+      "final_std": 71.91,
+      "n_seeds": 5
+    },
+    "static_soft_qbound": {
+      "final_mean": -171.52,
+      "final_std": 34.90,
       "n_seeds": 5
     }
   },
