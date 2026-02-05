@@ -505,10 +505,10 @@ Reward Type & Algorithm & Violation Rate & QBound Effect & Recommendation \\
 \textbf{Sparse Negative} (MountainCar) & DQN & 0.4\% & Neutral & No benefit \\
 \textbf{Sparse Negative} (Acrobot) & DQN & 0.8\% & Neutral & No benefit \\
 \midrule
-\textbf{Negative Dense} (Pendulum) & DQN & 55.5\% & -7.1\% & No benefit \\
-\textbf{Negative Dense} (Pendulum) & DDQN & 3.8\% & -7.1\% & No benefit \\
-\textbf{Negative Dense} (Pendulum) & DDPG & 29.7\% & +25.0\% & Under investigation \\
-\textbf{Negative Dense} (Pendulum) & TD3 & 3.5\% & +15.3\% & Under investigation \\
+\textbf{Negative Dense} (Pendulum) & DQN & 55.5\% & -7.1\% & \textbf{Under investigation} \\
+\textbf{Negative Dense} (Pendulum) & DDQN & 3.8\% & -7.1\% & \textbf{Under investigation} \\
+\textbf{Negative Dense} (Pendulum) & DDPG & 29.7\% & +25.0\% & Soft QBound approach \\
+\textbf{Negative Dense} (Pendulum) & TD3 & 3.5\% & +15.3\% & Soft QBound approach \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -523,9 +523,9 @@ Reward Type & Algorithm & Violation Rate & QBound Effect & Recommendation \\
     \item Sparse rewards (all): 0.0\% -- 1.5\% violation rate
 \end{itemize}
 
-\textbf{Note:} Violation rates vary significantly across algorithms even on the same environment. Pendulum DQN shows higher violation rates (55.5\%) than CartPole DQN (13.3\%), while Pendulum DDQN shows lower rates (3.8\%). The relationship between violation rate and performance is under investigation.
+\textbf{Under Investigation:} DQN variants show degradation on dense negative rewards despite high violation rates. Pendulum DQN has 55.5\% violations (higher than CartPole's 13.3\%) yet QBound degrades performance by -7.1\%. Why high violations fail to benefit from clipping on dense negative rewards is under investigation.
 
-\textbf{Recommendation:} Use Hard QBound for positive dense rewards where overestimation causes frequent bound violations. For sparse rewards, violations are rare so QBound provides no benefit. For negative dense rewards with continuous control (DDPG/TD3), Soft QBound shows promise but results are under investigation.
+\textbf{Recommendation:} Use Hard QBound for positive dense rewards where overestimation causes frequent bound violations. For sparse rewards, violations are rare so QBound provides no benefit. For negative dense rewards, use Soft QBound with DDPG/TD3 (shows +15\% to +25\% improvement).
 
 \section{QBound Bound Selection Strategy}
 
