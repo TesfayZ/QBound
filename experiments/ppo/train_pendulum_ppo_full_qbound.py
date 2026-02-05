@@ -271,45 +271,6 @@ def main():
         }
         save_intermediate_results(results)
 
-    # ===== 2. Architectural QBound + PPO (Negative Softplus) =====
-    print("\n" + "=" * 60)
-    print("METHOD 2: Architectural QBound + PPO (Negative Softplus Activation)")
-    print("=" * 60)
-    print("NOTE: Replaces algorithmic clipping with activation function for negative rewards")
-    print("      Uses -softplus(logits) to enforce V ≤ 0 naturally")
-
-    if is_method_completed(results, 'architectural_qbound_ppo'):
-        print("⏭️  Already completed, skipping...")
-    else:
-        architectural_agent = PPOAgent(
-            state_dim=3,
-            action_dim=1,
-            continuous_action=True,
-            hidden_sizes=HIDDEN_SIZES,
-            lr_actor=LR_ACTOR,
-            lr_critic=LR_CRITIC,
-            gamma=GAMMA,
-            gae_lambda=GAE_LAMBDA,
-            clip_epsilon=CLIP_EPSILON,
-            entropy_coef=ENTROPY_COEF,
-            ppo_epochs=PPO_EPOCHS,
-            minibatch_size=MINIBATCH_SIZE,
-            use_architectural_qbound=True,  # Use activation function instead of clipping
-            device='cpu'
-        )
-
-        architectural_rewards, architectural_violations = train_agent(env, architectural_agent, "PPO + Architectural QBound", track_violations=False)  # No violations by construction
-
-        results['training']['architectural_qbound_ppo'] = {
-            'rewards': architectural_rewards,
-            'final_100_mean': float(np.mean(architectural_rewards[-100:])),
-            'final_100_std': float(np.std(architectural_rewards[-100:])),
-            'max': float(np.max(architectural_rewards[-100:])),
-            'min': float(np.min(architectural_rewards[-100:])),
-            'note': 'Architectural bound via -softplus(logits), 0% violations by construction'
-        }
-        save_intermediate_results(results)
-
     # ===== Analysis and Summary =====
     print("\n" + "=" * 60)
     print("FINAL RESULTS (Last 100 Episodes)")
