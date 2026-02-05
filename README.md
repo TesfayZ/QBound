@@ -78,6 +78,20 @@ QBound's effectiveness depends on **reward sign, structure, and QBound type**:
 
 **Recommendation**: Use Hard QBound for **positive dense reward environments** with Dueling DQN (100% win rate). For continuous control, Soft QBound shows promise but has high seed variance.
 
+### Violation Rates Summary
+
+| Environment | Algorithm | Violation Rate | QBound Effect |
+|-------------|-----------|----------------|---------------|
+| **CartPole** (positive dense) | DQN | 13.3% | +12% to +34% |
+| **GridWorld** (sparse positive) | DQN | 1.5% | Neutral |
+| **FrozenLake** (sparse positive) | DQN | 0.0% | Neutral |
+| **MountainCar** (sparse negative) | DQN | 0.4% | Neutral |
+| **Acrobot** (sparse negative) | DQN | 0.8% | Neutral |
+| **Pendulum** (negative dense) | DDPG | 29.7% | +25.0% |
+| **Pendulum** (negative dense) | TD3 | 3.5% | +15.3% |
+
+*Note: Violation rates vary significantly across algorithms and seeds. The relationship between violation rate and performance is under investigation.*
+
 ---
 
 ## Theoretical Background
