@@ -511,7 +511,15 @@ Reward Type & Algorithm & Violation Rate & QBound Effect & Recommendation \\
 \end{tabular}
 \end{table}
 
-\textbf{Note:} Violation rates vary significantly across algorithms and seeds. DDPG/TD3 on negative rewards show high violation rates but the relationship between violation rate and performance is unclear and under investigation.
+\textbf{Observations:}
+\begin{itemize}
+    \item Positive dense (CartPole DQN): 13.3\% violation rate
+    \item Negative dense (Pendulum DDPG): 29.7\% violation rate
+    \item Negative dense (Pendulum TD3): 3.5\% violation rate
+    \item Sparse rewards (all): 0.0\% -- 1.5\% violation rate
+\end{itemize}
+
+\textbf{Note:} Direct comparison between positive and negative reward violation rates is not straightforward due to different algorithms (DQN vs DDPG/TD3), environments (CartPole vs Pendulum), and action spaces (discrete vs continuous). The relationship between violation rate and performance is under investigation.
 
 \textbf{Recommendation:} Use Hard QBound for positive dense rewards where overestimation causes frequent bound violations. For sparse rewards, violations are rare so QBound provides no benefit. For negative dense rewards with continuous control (DDPG/TD3), Soft QBound shows promise but results are under investigation.
 

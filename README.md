@@ -90,7 +90,13 @@ QBound's effectiveness depends on **reward sign, structure, and QBound type**:
 | **Pendulum** (negative dense) | DDPG | 29.7% | +25.0% |
 | **Pendulum** (negative dense) | TD3 | 3.5% | +15.3% |
 
-*Note: Violation rates vary significantly across algorithms and seeds. The relationship between violation rate and performance is under investigation.*
+**Observations:**
+- Positive dense (CartPole DQN): 13.3% violation rate
+- Negative dense (Pendulum DDPG): 29.7% violation rate
+- Negative dense (Pendulum TD3): 3.5% violation rate
+- Sparse rewards (all): 0.0% - 1.5% violation rate
+
+*Note: Direct comparison between positive and negative reward violation rates is not straightforward due to different algorithms (DQN vs DDPG/TD3), environments (CartPole vs Pendulum), and action spaces (discrete vs continuous). The relationship between violation rate and performance is under investigation.*
 
 ---
 
