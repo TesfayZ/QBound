@@ -59,9 +59,9 @@
 \title{QBound: Environment-Aware Q-Value Bounds for Stable Temporal Difference Learning}
 
 \author{
-  Tesfay \\
-  \texttt{tzemuy13@gmail.com} \\[0.5em]
-  \textit{Working Draft -- Contributions Welcome} \\
+  Tesfay Zemuy Gebrekidan\thanks{ORCID: 0000-0002-0182-0997} \\
+  Independent Researcher \\
+  \texttt{tzemuy13@gmail.com} \\
   \url{https://github.com/TesfayZ/QBound}
 }
 
@@ -228,7 +228,7 @@ QBound differs from prior work in several key aspects:
     \item \textbf{Violation-based analysis:} We analyze when QBound is effective by measuring bound violation rates. For dense positive rewards, overestimation causes frequent violations (12.9\% on CartPole), making clipping beneficial. For sparse rewards, violations are rare ($<$1\%), explaining neutral results
     \item \textbf{Bootstrapping-based enforcement:} QBound leverages the natural propagation of bootstrapped targets through temporal difference learning \citep{sutton2018reinforcement}, requiring only simple clipping operations
     \item \textbf{Online learning focus:} Unlike recent work on offline RL \citep{wang2024adaptive, imagination2025limited}, QBound targets online learning in both sparse and dense reward settings
-    \item \textbf{Comprehensive evaluation:} We provide extensive analysis across 8 environments with 5 seeds each (40 runs), including honest reporting of failure modes and implementation-dependent effectiveness
+    \item \textbf{Systematic evaluation:} We evaluate QBound across 8 classic control environments with 5 seeds each (40 runs), with explicit reporting of failure modes and implementation-dependent effectiveness
 \end{enumerate}
 
 \section{Theoretical Foundations}
@@ -1529,7 +1529,7 @@ We presented \textbf{QBound}, a stabilization mechanism that prevents overestima
     \item \textbf{Theoretical Framework:} Rigorous derivation of environment-specific Q-value bounds from reward structure, with correctness guarantees and sample complexity analysis
     \item \textbf{Hard vs Soft QBound:} Mathematical analysis proving why hard clipping fails for continuous control (gradient death) and soft penalties succeed (maintains differentiability \citep{silver2014deterministic})
     \item \textbf{Empirical Validation:} Comprehensive 5-seed evaluation demonstrating that preventing overestimation yields 12-34\% improvements for positive dense rewards (CartPole), with Dueling DQN showing 100\% win rate
-    \item \textbf{Algorithmic Generalization:} Validation across different DQN architectures (standard DQN, Double DQN, Dueling DQN), demonstrating applicability within the value-based off-policy domain
+    \item \textbf{Algorithmic Generalization:} Validation across DQN, Double DQN, and Dueling DQN on CartPole, with consistent improvements (+12\% to +33.6\%) across architectures
     \item Comparative analysis: Direct comparison with Double DQN revealing environment-dependent behavior of generic pessimism—Double DQN degrades performance significantly on dense-reward tasks (-66\% on CartPole) while QBound's environment-aware bounds perform well when reward sign is appropriate
     \item \textbf{Practical Guidelines:} Clear algorithm-specific recommendations (Hard QBound for discrete actions, Soft QBound for continuous actions) with empirical evidence of when and how to apply QBound effectively
     \item \textbf{Open Source Implementation:} Algorithm-agnostic implementation with minimal integration requirements
@@ -1541,7 +1541,7 @@ We presented \textbf{QBound}, a stabilization mechanism that prevents overestima
 \begin{itemize}
     \item \textbf{Positive dense rewards (CartPole):} +12-34\% improvement across 4 DQN variants. CartPole's $r = +1$ per timestep allows unbounded Q-value growth during training. QBound's explicit $Q_{\max} = 99.34$ prevents overestimation, stabilizing learning. Largest gain in DDQN (+33.6\%), addressing known DDQN CartPole challenges. All improvements statistically significant (non-overlapping 95\% CIs).
 
-    \item \textbf{Negative dense rewards (Pendulum DQN):} -3\% to -7\% degradation. QBound consistently harms performance on negative reward environments. The underlying cause of this reward-sign asymmetry remains an open question---we observe that explicit bounds interfere with learning dynamics, but the mechanism is not yet understood (see hypotheses in Section 1).
+    \item \textbf{Negative dense rewards (Pendulum DQN):} -3\% to -7\% degradation. QBound consistently harms performance on negative reward environments, where explicit bounds interfere with learning dynamics. We discuss the asymmetry and candidate mechanisms in Section~\ref{subsec:reward-sign-dependence} and Limitations.
 
     \item \textbf{Continuous control (DDPG/TD3):} Soft QBound shows +25\% (DDPG) and +15\% (TD3) mean improvement on Pendulum, but with high seed variance. Unlike Hard QBound on DQN which degrades, Soft QBound shows promise for negative reward continuous control.
 
@@ -1550,9 +1550,7 @@ We presented \textbf{QBound}, a stabilization mechanism that prevents overestima
     \item \textbf{State-dependent negative (MountainCar, Acrobot):} -3.6\% to -47.4\% degradation. MountainCar DDQN worst case: -47.4\% (baseline: -122.72 $\pm$ 17.04, QBound: -180.93 $\pm$ 38.15). Both environments have $r = -1$ until goal reached. Consistent with other negative reward environments, QBound causes degradation.
 \end{itemize}
 
-\textbf{Overall success rate:} 40\% (6/15 algorithm-environment combinations show $>$10\% improvement), 13\% neutral, 47\% degradation. \textbf{Key insight:} QBound's effectiveness shows strong reward-sign dependence. For positive rewards, QBound provides consistent benefits. For negative rewards, QBound consistently causes degradation. The underlying cause of this asymmetry remains an open question for future investigation.
-
-\textbf{Open question:} While the theoretical upper bound $Q \leq 0$ for negative rewards is mathematically provable (Theorem~\ref{thm:negative-reward-bound}), why QBound fails on negative rewards remains unexplained. We propose several hypotheses in Section 1 (network initialization bias, gradient flow patterns, replay buffer effects, exploration interactions) but leave definitive answers for future investigation.
+\textbf{Overall success rate:} 40\% (6/15 algorithm-environment combinations show $>$10\% improvement), 13\% neutral, 47\% degradation. \textbf{Key insight:} QBound's effectiveness shows strong reward-sign dependence: positive rewards yield consistent benefits, negative rewards yield consistent degradation.
 
 \subsection{Practical Recommendations}
 
@@ -1629,7 +1627,7 @@ DDPG/TD3 & Hard & \textbf{Never use} & Gradient disruption \\
 
 QBound represents a simple yet principled approach to improving reinforcement learning through environment-aware stabilization. By enforcing theoretically-derived bounds through bootstrapping-based clipping, QBound stabilizes value-based methods in positive dense reward environments where Q-values can grow unbounded.
 
-For the reinforcement learning community, QBound offers a practical tool that can be immediately applied to existing algorithms with minimal modification. \textbf{Our comprehensive 5-seed evaluation reveals that QBound is most effective for positive dense reward environments}, achieving consistent improvements on CartPole (+12\% to +33.6\% across DQN variants) with Dueling DQN showing 100\% win rate. However, QBound provides no benefit or causes degradation on negative reward and sparse terminal reward environments.
+For the reinforcement learning community, QBound offers a practical tool that can be immediately applied to existing algorithms with minimal modification. \textbf{Our 5-seed evaluation across 8 classic control environments shows QBound is most effective for positive dense reward environments}, achieving consistent improvements on CartPole (+12\% to +33.6\% across DQN variants) with Dueling DQN showing 100\% win rate. QBound provides no benefit on sparse terminal rewards and degrades performance on negative reward environments.
 
 \textbf{Key insights from comprehensive 5-seed evaluation:}
 \begin{enumerate}
@@ -1637,7 +1635,7 @@ For the reinforcement learning community, QBound offers a practical tool that ca
 
     \item \textbf{Dueling DQN is most reliable:} Among DQN variants, Dueling DQN with QBound shows 100\% win rate (5/5 seeds improve) with +22.5\% mean improvement
 
-    \item \textbf{Not universally beneficial:} QBound is not a universal improvement. It works best for positive dense rewards but causes degradation on negative reward environments (underlying cause remains an open question)
+    \item \textbf{Not universally beneficial:} QBound works best for positive dense rewards but causes degradation on negative reward environments
 
     \item \textbf{Seed sensitivity:} Even in successful cases (CartPole DQN), 20\% of seeds show degradation. Always run multiple seeds before deployment
 \end{enumerate}
@@ -1662,7 +1660,7 @@ For the reinforcement learning community, QBound offers a practical tool that ca
         \begin{itemize}
             \item \textit{Excellent:} DQN variants on positive rewards (+12-34\% CartPole)
             \item \textit{Mixed:} DDPG/TD3 with Soft QBound (+15-25\% Pendulum, high variance)
-            \item \textit{Fails:} DQN on negative rewards (cause remains open question)
+            \item \textit{Fails:} DQN on negative rewards
         \end{itemize}
 
     \item \textbf{Environment characteristics matter:} Not universally beneficial:
@@ -1676,12 +1674,6 @@ For the reinforcement learning community, QBound offers a practical tool that ca
 \end{itemize}
 
 \textbf{Bottom line:} QBound provides consistent improvements (+12\% to +33.6\%) on positive dense reward environments like CartPole, with Dueling DQN showing 100\% win rate across 5 seeds. For continuous control with negative rewards, Soft QBound shows promise (+15-25\% on Pendulum DDPG/TD3) but with high seed variance. Hard QBound fails on negative reward DQN environments and provides no benefit on sparse terminal rewards. Apply QBound selectively based on reward structure and action space.
-
-\section*{Open Research and Contributions}
-
-This is an \textbf{ongoing research project}. The central open question---why QBound works for positive but not negative rewards---remains unsolved. We invite the research community to contribute experiments, analysis, and theoretical insights. Promising directions include: (1) Q-value transformation approaches for negative rewards, (2) testing on additional benchmarks (Atari, MuJoCo), and (3) investigating the interaction between network initialization and reward sign.
-
-\textbf{Repository:} \url{https://github.com/TesfayZ/QBound}
 
 \section*{Acknowledgments}
 
